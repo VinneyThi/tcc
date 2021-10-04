@@ -3,26 +3,77 @@
 #include <hal/hal.h>
 #include <SPI.h>
 #include "fila1.h" //s
+#include "tcc2.h"
 
-int flagThread = 0;
+
 uint8_t mydata[1];
 
 fila  *buff = new PROGMEM fila;
 fila  *backup = new PROGMEM fila;
-void carregaBUFF(fila* ptrbackup, fila *ptrbuff)
-{
-  Serial.println(F("**Carrega1** "));
 
-  for (int i = 0; i < 5 ; i++)
-  { uint8_t* ptrAuxDado = new uint8_t;
 
-    *ptrAuxDado = ptrbackup->getDadoPosConf(i);
-    Serial.println(i);
-    Serial.println(*ptrAuxDado);
-    ptrbuff->insereFinal(ptrAuxDado);
-  }
-  Serial.println(F("**Carrega2** "));
+
+    int BufferSetData_Aux(uint8_t *aux){
+        return buff->insereFinal(aux);
+        }
+
+int BuffetGetSize_Aux(uint8_t *aux){
+  return buff->getQuantidade();
 }
+
+
+
+uint8_t BackupGetConf(int pos){
+  return backup->getDadoPosConf(pos);
+}
+
+
+
+uint8_t BufferGetdData_Aux(){
+  return buff->getDado();
+}
+
+
+int BufferGetSizeConf(){
+  return buff->getQuantidadeConfima();
+}
+
+int RemoveBuff(){
+  return buff->removeFila();
+}
+
+uint8_t BackupGetData(){
+  return backup->getDado();
+}
+
+uint8_t BackupSetData(uint8_t *aux){
+  return backup->insereFinal(aux);
+}
+
+
+void BackupSetConf(int aux){
+  return backup->setPTRconfirmado(aux);
+}
+
+
+int BackupGetSize(){
+  return backup->getQuantidade();
+}
+
+
+
+pBufferSetdData = &BufferSetData_Aux;
+pBuffetGetSize =  &BuffetGetSize_Aux;
+pBufferGetdData = &BufferGetdData_Aux;
+pBufferGetSizeConf = &BufferGetSizeConf;
+pRemoveBuff = &RemoveBuff;
+
+pBackupGetSize = &BackupGetSize;
+pBackupGetConf = &BackupGetConf;
+pBackupGetData = &BackupGetData;
+pBackupSetData = &BackupSetData;
+pBackupSetConf = &BackupSetConf;
+
 
 static const u1_t PROGMEM APPEUI[8] ={ 0x4C, 0x84, 0x03, 0xD0, 0x7E, 0xD5, 0xB3, 0x70 };
 void os_getArtEui (u1_t* buf) {
@@ -104,7 +155,7 @@ void onEvent (ev_t ev) {
 
 
 
-      tcc2();
+      tcc2(&flagThread, &sendjob);
 
 
 
@@ -229,6 +280,8 @@ void do_send(osjob_t* j) {
   }
   // Next TX is scheduled after TX_COMPLETE event.
 }
+
+
 
 void setup() {
   Serial.begin(115200);

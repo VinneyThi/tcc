@@ -5,7 +5,6 @@
 #include <hal/hal.h>
 #include <SPI.h>
 #include <stdlib.h>
-
 class node
 {
   public:
@@ -50,8 +49,6 @@ class fila
       node *ptrFinal;
       node *ptrConfirmado;
 };
-
-
 
 
 

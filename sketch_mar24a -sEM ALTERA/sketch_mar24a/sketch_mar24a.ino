@@ -1,8 +1,8 @@
-
 #include <lmic.h>
 #include <hal/hal.h>
 #include <SPI.h>
 #include "fila1.h"
+#include "tcc2.h"
 
 int flagConfV = 0; // apos falha do envio do buff e consegue enviar
 int flagReenvio = 0; // falha no 11 priemiro
@@ -29,18 +29,18 @@ void carregaBUFF(fila* ptrbackup, fila *ptrbuff)
   Serial.println(F("**Carrega2** "));
 }
 
-static const u1_t PROGMEM APPEUI[8] = { 0x77, 0x5E, 0x02, 0xD0, 0x7E, 0xD5, 0xB3, 0x70 };
+static const u1_t PROGMEM APPEUI[8] = {0x43, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 void os_getArtEui (u1_t* buf) {
   memcpy_P(buf, APPEUI, 8);
 }
 
-static const u1_t PROGMEM DEVEUI[8] = { 0x5A, 0xDC, 0x92, 0xAE, 0xBE, 0xA1, 0xB2, 0x00 };
+static const u1_t PROGMEM DEVEUI[8] = {0xA8, 0x5A, 0x04, 0xD0, 0x7E, 0xD5, 0xB3, 0x70};
 void os_getDevEui (u1_t* buf) {
   memcpy_P(buf, DEVEUI, 8);
 }
 
 
-static const u1_t PROGMEM APPKEY[16] = { 0xE2, 0xE9, 0xC4, 0xC2, 0xDA, 0x60, 0xD0, 0x47, 0x39, 0x1B, 0x95, 0xA9, 0x99, 0xA6, 0xC0, 0x34 };
+static const u1_t PROGMEM APPKEY[16] = {0x45, 0x46, 0x06, 0xCB, 0xD8, 0xE5, 0xDB, 0x31, 0xFC, 0x20, 0xD8, 0xF0, 0x2B, 0xE9, 0x1D, 0xCE};
 void os_getDevKey (u1_t* buf) {
   memcpy_P(buf, APPKEY, 16);
 }
@@ -50,7 +50,7 @@ static osjob_t sendjob; // cria uma variavel de trabalho que é usado na funçã
 
 // Schedule TX every this many seconds (might become longer due to duty
 // cycle limitations).
-const unsigned TX_INTERVAL = 1;
+const unsigned TX_INTERVAL = 10;
 
 // Pin mapping for Esp32
 const lmic_pinmap lmic_pins = {
