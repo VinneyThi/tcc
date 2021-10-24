@@ -1,23 +1,37 @@
-#include <lmic.h>
+ #include <lmic.h>
 #include <hal/hal.h>
 #include <SPI.h>
 #include "fila1.h"
 
-int flagConfV = 0;   // apos falha do envio do buff e consegue enviar
-int flagReenvio = 0; // falha no 11 priemiro
-int contEnvio = 0;
-int flagThread = 0;
+int flagStartProd   = 0;
+int contEnvio       = 0;
+int flagThread      = 0;
+int auxAtraso       = 0;
+int flagReenvio     = 0; 
+int flagConfV       = 0;   
 int flagEnvioRapido = 0;
-int auxAtraso = 0;
-int OldSizeBackup =0;
-int  flagStartProd = 0;
+int OldSizeBackup   = 0;
+int flagFalhaBuff   = 0;   // falha do envio do buff
 
 
 uint8_t mydata[1];
 uint8_t lastDataSend[1];
-int flagFalhaBuff = 0; // falha do envio do buff
-fila *buff = new PROGMEM fila;
+
+fila *buff   = new PROGMEM fila;
 fila *backup = new PROGMEM fila;
+
+static osjob_t sendjob; // cria uma variavel de trabalho que é usado na função de agendamento da biblioteca.
+
+// Schedule TX every this many seconds (might become longer due to duty
+// cycle limitations).
+const unsigned TX_INTERVAL = 10;
+
+void do_send(osjob_t *j);
+void do_sendRenv(osjob_t *j);
+void tcc2();
+void carregaBUFF(fila *ptrbackup, fila *ptrbuff);
+void printSet(fila *ptrbackup);
+
 void carregaBUFF(fila *ptrbackup, fila *ptrbuff)
 {
   Serial.println(F("**Carrega1** "));
@@ -46,92 +60,121 @@ void printSet(fila *ptrbackup)
   Serial.println(F("**//printSet** "));
 }
 
-static const u1_t PROGMEM APPEUI[8] = {0x43, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-void os_getArtEui(u1_t *buf)
+void do_sendRenv(osjob_t *j)
 {
-  memcpy_P(buf, APPEUI, 8);
-}
-
-static const u1_t PROGMEM DEVEUI[8] = {0xA8, 0x5A, 0x04, 0xD0, 0x7E, 0xD5, 0xB3, 0x70};
-void os_getDevEui(u1_t *buf)
-{
-  memcpy_P(buf, DEVEUI, 8);
-}
-
-static const u1_t PROGMEM APPKEY[16] = {0x45, 0x46, 0x06, 0xCB, 0xD8, 0xE5, 0xDB, 0x31, 0xFC, 0x20, 0xD8, 0xF0, 0x2B, 0xE9, 0x1D, 0xCE};
-void os_getDevKey(u1_t *buf)
-{
-  memcpy_P(buf, APPKEY, 16);
-}
-
-static osjob_t sendjob; // cria uma variavel de trabalho que é usado na função de agendamento da biblioteca.
-
-// Schedule TX every this many seconds (might become longer due to duty
-// cycle limitations).
-const unsigned TX_INTERVAL = 10;
-
-// Pin mapping for Esp32
-const lmic_pinmap lmic_pins = {
-    .nss = 18,
-    .rxtx = LMIC_UNUSED_PIN,
-    .rst = 14,
-    .dio = {26, 33, 32}, // 26,35,34 | 26,33,32
-};
-
-void onEvent(ev_t ev)
-{
-  Serial.print(os_getTime());
-  Serial.print(": ");
-  switch (ev)
+  // Check if there is not a current TX/RX job running
+  if (LMIC.opmode & OP_TXRXPEND)
   {
-  case EV_JOINING:
-    Serial.println(F("EV_JOINING"));
-    Serial.println(LMIC.rxDelay);
-    break;
-  case EV_JOINED:
-    Serial.println(F("EV_JOINED"));
+    Serial.println(F("OP_TXRXPEND, not sending"));
+  }
+  else
+  {
+    Serial.println(F("**do_sendRenv** "));
+
+    uint8_t *ptrAuxDate = new uint8_t;
+    *ptrAuxDate = buff->getDado();
+    Serial.println(F("ENVIAR o BUFF"));
+    Serial.print(*ptrAuxDate, HEX);
+    Serial.println(F(" dado buff"));
+    uint8_t myaux[1];
+
+    myaux[0] = *ptrAuxDate;
+
+    if (buff->getQuantidade() == 1 && !flagConfV && !flagEnvioRapido) // !flagConfV !flagEnvioRapido
     {
-      flagStartProd = 1;
-      Serial.println(LMIC.rxDelay);
-      u4_t netid = 0;
-      devaddr_t devaddr = 0;
-      u1_t nwkKey[16];
-      u1_t artKey[16];
-      LMIC_getSessionKeys(&netid, &devaddr, nwkKey, artKey);
-      Serial.print("netid: ");
-      Serial.println(netid, DEC);
-      Serial.print("devaddr: ");
-      Serial.println(devaddr, HEX);
-      Serial.print("artKey: ");
-      for (int i = 0; i < sizeof(artKey); ++i)
-      {
-        Serial.print(artKey[i], HEX);
-      }
-      Serial.println("");
-      Serial.print("nwkKey: ");
-      for (int i = 0; i < sizeof(nwkKey); ++i)
-      {
-        Serial.print(nwkKey[i], HEX);
-      }
-      Serial.println("");
+
+      flagFalhaBuff = 1;
+      flagReenvio = 0;
+      LMIC_setTxData2(1, myaux, sizeof(myaux), 1);
     }
-    Serial.println(F("Successful OTAA Join..."));
-    // Disable link check validation (automatically enabled
-    // during join, but because slow data rates change max TX
-    // size, we don't use it in this example.
-    LMIC_setLinkCheckMode(0);
-    break;
+    else
+    {
+      LMIC_setTxData2(1, myaux, sizeof(myaux), 0);
+    }
 
-  case EV_JOIN_FAILED:
-    Serial.println(F("EV_JOIN_FAILED"));
-    break;
-  case EV_REJOIN_FAILED:
-    Serial.println(F("EV_REJOIN_FAILED"));
-    break;
-    break;
-  case EV_TXCOMPLETE:
+    buff->removeFila();
+    Serial.println(F("QTN BUFF APOS REMOVER"));
+    Serial.println(buff->getQuantidade());
+  }
 
-    LMIC_setAdrMode(0);
+  Serial.println(F("Packet queued"));
+  Serial.print(F("Sending packet on frequency: "));
+  Serial.println(LMIC.freq);
+}
+// Next TX is scheduled after TX_COMPLETE event.
+
+void do_send(osjob_t *j)
+{
+  // Check if there is not a current TX/RX job running
+  if (LMIC.opmode & OP_TXRXPEND)
+  {
+    Serial.println(F("OP_TXRXPEND, not sending"));
+  }
+  else
+  {
+    
+    Serial.println(F("**do_send** "));
+
+    if (contEnvio <= 4 && !flagFalhaBuff && !flagConfV)
+    {        
+      Serial.println(F("!Envio menor que o buffer max !!"));
+      Serial.print(F("Valor a ser enviado "));
+      Serial.println(mydata[0], HEX);
+      
+      Serial.print(F("Valor do ultimo dado enviado "));
+      Serial.println(lastDataSend[0]);
+
+      Serial.print(F("Valor do contador antes "));
+      Serial.println(contEnvio);
+
+      contEnvio = (lastDataSend[0] != mydata[0])  && (contEnvio == 0 ) && (buff->getQuantidade() == 0) ? ++contEnvio: contEnvio ;  
+      Serial.print(F("Valor do contador apos "));
+      Serial.println(contEnvio);
+      
+      LMIC_setTxData2(1, mydata, sizeof(mydata), 0);
+    }
+
+    else if (contEnvio > 4)
+    {
+      contEnvio = 0;
+      flagReenvio = 1;
+      flagThread = 1;
+      Serial.println(F("!! Enviado com a flag 1 !!"));
+      Serial.println(mydata[0], HEX);
+      Serial.println(F("!! Enviado com a flag 1 !!"));
+      lastDataSend[0] = mydata[0];
+      LMIC_setTxData2(1, mydata, sizeof(mydata), 1);
+    }
+
+    else if (flagFalhaBuff)
+    {
+      flagFalhaBuff = 0; //y
+      LMIC_setTxData2(1, mydata, sizeof(mydata), 1);
+    }
+
+    else if (flagConfV)
+    {
+
+      LMIC_setTxData2(1, mydata, sizeof(mydata), 1);
+    }
+
+    Serial.print(F("VALOR DO pacote enviado "));
+    Serial.println(mydata[0], HEX);
+    Serial.print(contEnvio);
+    Serial.println(F(" Valor Contador"));
+    Serial.println(F("Packet queued"));
+
+    Serial.print(F("Sending packet on frequency: "));
+    Serial.println(LMIC.freq);
+   
+  }
+  
+  // Next TX is scheduled after TX_COMPLETE event.
+}
+
+
+void tcc2 (){
+   LMIC_setAdrMode(0);
     Serial.println(LMIC.rxDelay);
 
     Serial.println(F("EV_TXCOMPLETE (includes waiting for RX windows)"));
@@ -310,10 +353,12 @@ void onEvent(ev_t ev)
       else
       {
         int auxB = buff->getQuantidade();
+
         if (auxB > 0 && flagThread)
           for (int i = 0; i < auxB; i++) //p
             buff->removeFila();
-
+        
+        Serial.print("Tamanho do buff ");
         Serial.println(buff->getQuantidade());
         flagEnvioRapido = 0;
         flagThread = 0; /*******/
@@ -328,15 +373,89 @@ void onEvent(ev_t ev)
     Serial.println(LMIC.rxDelay);
     Serial.println("*****Delay***");
     LMIC.rxDelay = 5;
+}
 
-    //      // Schedule next transmission
-    //            if( flagReenvio && !flagConfV)
-    //            {
-    //              flagReenvio =0;
-    //              os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(TX_INTERVAL), do_send);
-    //            }
-    //           else if (flagReenvio && flagFalhaBuff)
-    //                  os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(TX_INTERVAL), do_send);
+
+
+static const u1_t PROGMEM APPEUI[8] = {0x43, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+void os_getArtEui(u1_t *buf)
+{
+  memcpy_P(buf, APPEUI, 8);
+}
+
+static const u1_t PROGMEM DEVEUI[8] = {0xA8, 0x5A, 0x04, 0xD0, 0x7E, 0xD5, 0xB3, 0x70};
+void os_getDevEui(u1_t *buf)
+{
+  memcpy_P(buf, DEVEUI, 8);
+}
+
+static const u1_t PROGMEM APPKEY[16] = {0x45, 0x46, 0x06, 0xCB, 0xD8, 0xE5, 0xDB, 0x31, 0xFC, 0x20, 0xD8, 0xF0, 0x2B, 0xE9, 0x1D, 0xCE};
+void os_getDevKey(u1_t *buf)
+{
+  memcpy_P(buf, APPKEY, 16);
+}
+
+// Pin mapping for Esp32
+const lmic_pinmap lmic_pins = {
+    .nss = 18,
+    .rxtx = LMIC_UNUSED_PIN,
+    .rst = 14,
+    .dio = {26, 33, 32}, // 26,35,34 | 26,33,32
+};
+
+void onEvent(ev_t ev)
+{
+  Serial.print(os_getTime());
+  Serial.print(": ");
+  switch (ev)
+  {
+  case EV_JOINING:
+    Serial.println(F("EV_JOINING"));
+    Serial.println(LMIC.rxDelay);
+    break;
+  case EV_JOINED:
+    Serial.println(F("EV_JOINED"));
+    {
+      flagStartProd = 1;
+      Serial.println(LMIC.rxDelay);
+      u4_t netid = 0;
+      devaddr_t devaddr = 0;
+      u1_t nwkKey[16];
+      u1_t artKey[16];
+      LMIC_getSessionKeys(&netid, &devaddr, nwkKey, artKey);
+      Serial.print("netid: ");
+      Serial.println(netid, DEC);
+      Serial.print("devaddr: ");
+      Serial.println(devaddr, HEX);
+      Serial.print("artKey: ");
+      for (int i = 0; i < sizeof(artKey); ++i)
+      {
+        Serial.print(artKey[i], HEX);
+      }
+      Serial.println("");
+      Serial.print("nwkKey: ");
+      for (int i = 0; i < sizeof(nwkKey); ++i)
+      {
+        Serial.print(nwkKey[i], HEX);
+      }
+      Serial.println("");
+    }
+    Serial.println(F("Successful OTAA Join..."));
+    // Disable link check validation (automatically enabled
+    // during join, but because slow data rates change max TX
+    // size, we don't use it in this example.
+    LMIC_setLinkCheckMode(0);
+    break;
+
+  case EV_JOIN_FAILED:
+    Serial.println(F("EV_JOIN_FAILED"));
+    break;
+  case EV_REJOIN_FAILED:
+    Serial.println(F("EV_REJOIN_FAILED"));
+    break;
+    break;
+  case EV_TXCOMPLETE: 
+    tcc2();
     break;
   case EV_LOST_TSYNC:
     Serial.println(F("EV_LOST_TSYNC"));
@@ -363,110 +482,6 @@ void onEvent(ev_t ev)
     Serial.println((unsigned)ev);
     break;
   }
-}
-
-void do_sendRenv(osjob_t *j)
-{
-  // Check if there is not a current TX/RX job running
-  if (LMIC.opmode & OP_TXRXPEND)
-  {
-    Serial.println(F("OP_TXRXPEND, not sending"));
-  }
-  else
-  {
-    Serial.println(F("**do_sendRenv** "));
-
-    uint8_t *ptrAuxDate = new uint8_t;
-    *ptrAuxDate = buff->getDado();
-    Serial.println(F("ENVIAR o BUFF"));
-    Serial.print(*ptrAuxDate, HEX);
-    Serial.println(F(" dado buff"));
-    uint8_t myaux[1];
-
-    myaux[0] = *ptrAuxDate;
-
-    if (buff->getQuantidade() == 1 && !flagConfV && !flagEnvioRapido) // !flagConfV !flagEnvioRapido
-    {
-
-      flagFalhaBuff = 1;
-      flagReenvio = 0;
-      LMIC_setTxData2(1, myaux, sizeof(myaux), 1);
-    }
-    else
-    {
-      LMIC_setTxData2(1, myaux, sizeof(myaux), 0);
-    }
-
-    buff->removeFila();
-    Serial.println(F("QTN BUFF APOS REMOVER"));
-    Serial.println(buff->getQuantidade());
-  }
-
-  Serial.println(F("Packet queued"));
-  Serial.print(F("Sending packet on frequency: "));
-  Serial.println(LMIC.freq);
-}
-// Next TX is scheduled after TX_COMPLETE event.
-
-void do_send(osjob_t *j)
-{
-  // Check if there is not a current TX/RX job running
-  if (LMIC.opmode & OP_TXRXPEND)
-  {
-    Serial.println(F("OP_TXRXPEND, not sending"));
-  }
-  else
-  {
-    
-    Serial.println(F("**do_send** "));
-
-    if (contEnvio < 5 && !flagFalhaBuff && !flagConfV)
-    {        
-            Serial.println(F("!dasdasdasad1 !!"));
-      Serial.println(mydata[0], HEX);
-      
-       //contEnvio = (lastDataSend[0] == mydata[0])  && (contEnvio == 0 ) ? contEnvio: contEnvio +1 ;  // 
-     
-       Serial.println(contEnvio);
-      Serial.println(F("!dasd21dsadas!!"));
-      LMIC_setTxData2(1, mydata, sizeof(mydata), 0);
-    }
-
-    else if (contEnvio >= 5)
-    {
-      contEnvio = 0;
-      flagReenvio = 1;
-      flagThread = 1;
-      Serial.println(F("!! Enviado com a flag 1 !!"));
-      Serial.println(mydata[0], HEX);
-      Serial.println(F("!! Enviado com a flag 1 !!"));
-      LMIC_setTxData2(1, mydata, sizeof(mydata), 1);
-    }
-
-    else if (flagFalhaBuff)
-    {
-      flagFalhaBuff = 0; //y
-      LMIC_setTxData2(1, mydata, sizeof(mydata), 1);
-    }
-
-    else if (flagConfV)
-    {
-
-      LMIC_setTxData2(1, mydata, sizeof(mydata), 1);
-    }
-
-    Serial.print(F("VALOR DO pacote enviado "));
-    Serial.println(mydata[0], HEX);
-    Serial.print(contEnvio);
-    Serial.println(F(" Valor Contador"));
-    Serial.println(F("Packet queued"));
-
-    Serial.print(F("Sending packet on frequency: "));
-    Serial.println(LMIC.freq);
-   lastDataSend[0] = mydata[0];
-  }
-  
-  // Next TX is scheduled after TX_COMPLETE event.
 }
 
 void setup()
@@ -517,7 +532,7 @@ void loop2(void *z)
       Serial.print(F(" Novo dado gerado"));
       Serial.println(mydata[0], HEX);
 
-      if (buff->getQuantidade() < 5 && !flagThread)
+      if (buff->getQuantidade() <= 4 && !flagThread)
      {
         buff->insereFinal(mydata);
         Serial.println(F(" Tamanho buff "));
