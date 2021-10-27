@@ -12,7 +12,7 @@ int flagConfV       = 0;
 int flagEnvioRapido = 0;
 int OldSizeBackup   = 0;
 int flagFalhaBuff   = 0;   // falha do envio do buff
-
+int linkDead        = 0;
 
 uint8_t mydata[1];
 uint8_t lastDataSend[1];
@@ -85,10 +85,13 @@ void do_sendRenv(osjob_t *j)
 
       flagFalhaBuff = 1;
       flagReenvio = 0;
+
+      LMIC.rxDelay = 5;
       LMIC_setTxData2(1, myaux, sizeof(myaux), 1);
     }
     else
     {
+      LMIC.rxDelay = 1;
       LMIC_setTxData2(1, myaux, sizeof(myaux), 0);
     }
 
@@ -131,6 +134,7 @@ void do_send(osjob_t *j)
       Serial.print(F("Valor do contador apos "));
       Serial.println(contEnvio);
       
+      LMIC.rxDelay = 1;
       LMIC_setTxData2(1, mydata, sizeof(mydata), 0);
     }
 
@@ -143,6 +147,8 @@ void do_send(osjob_t *j)
       Serial.println(mydata[0], HEX);
       Serial.println(F("!! Enviado com a flag 1 !!"));
       lastDataSend[0] = mydata[0];
+
+       LMIC.rxDelay = 5;
       LMIC_setTxData2(1, mydata, sizeof(mydata), 1);
     }
 
@@ -154,7 +160,7 @@ void do_send(osjob_t *j)
 
     else if (flagConfV)
     {
-
+    LMIC.rxDelay = 5;
       LMIC_setTxData2(1, mydata, sizeof(mydata), 1);
     }
 
@@ -412,8 +418,10 @@ void onEvent(ev_t ev)
   case EV_JOINING:
     Serial.println(F("EV_JOINING"));
     Serial.println(LMIC.rxDelay);
+    LMIC.rxDelay = 5;
     break;
   case EV_JOINED:
+  LMIC.rxDelay = 5;
     Serial.println(F("EV_JOINED"));
     {
       flagStartProd = 1;
@@ -445,6 +453,11 @@ void onEvent(ev_t ev)
     // during join, but because slow data rates change max TX
     // size, we don't use it in this example.
     LMIC_setLinkCheckMode(0);
+     if(linkDead){ 
+        Serial.println(" Volta do link dead");
+        linkDead = 0;
+        os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_send);
+      } 
     break;
 
   case EV_JOIN_FAILED:
@@ -456,6 +469,7 @@ void onEvent(ev_t ev)
     break;
   case EV_TXCOMPLETE: 
     tcc2();
+    LMIC.rxDelay = 5;
     break;
   case EV_LOST_TSYNC:
     Serial.println(F("EV_LOST_TSYNC"));
@@ -469,6 +483,8 @@ void onEvent(ev_t ev)
     break;
   case EV_LINK_DEAD:
     Serial.println(F("EV_LINK_DEAD"));
+    LMIC.rxDelay = 5;
+    linkDead = 1;
     break;
   case EV_LINK_ALIVE:
     Serial.println(F("EV_LINK_ALIVE"));
@@ -504,6 +520,7 @@ void setup()
   LMIC_setClockError(MAX_CLOCK_ERROR * 0 / 100); // compensação de atrasso no recebimento de janela de donwlink( necessario no otta) configurado para  um erro de 1%
 
   // Start job (sending automatically starts OTAA too)
+     Serial.print(F("testesd123 "));
   do_send(&sendjob);
 }
 
