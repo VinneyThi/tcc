@@ -108,7 +108,9 @@ void onEvent (ev_t ev) {
       Serial.println(F("EV_TXCOMPLETE (includes waiting for RX windows)"));
       Serial.print(F("ContEnvio "));
       Serial.print(contEnvio);
+
       auxAtraso = backup->getQuantidade() - backup->getQuantidadeConfima();
+      
       Serial.println(F("Flags"));
       Serial.print(F("FlagReenvio "));
       Serial.println(flagReenvio);
@@ -123,16 +125,10 @@ void onEvent (ev_t ev) {
       Serial.print(F("TAMANHO - POSCONF "));
       Serial.println(auxAtraso);
 
-
-
-
-
-
-
-
       if (LMIC.txrxFlags & TXRX_ACK)
-      { Serial.println(F("Received ack"));
-       int auxTamBuff = buff->getQuantidade();
+      {
+        Serial.println(F("Received ack"));
+        int auxTamBuff = buff->getQuantidade();
         Serial.print(buff->getQuantidade());
         Serial.println(F(" Tamanho buff")); // 10 minutos crash aqui mostars as flags depois.
         if (flagReenvio && !flagConfV)

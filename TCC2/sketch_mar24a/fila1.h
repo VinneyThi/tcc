@@ -16,6 +16,7 @@ class node
     int atualizaPTRAnt(void *);
     uint8_t getDado();
     void* getPtrProx();
+    void* getPtrAnt();
 
     private:
       uint8_t *ptrDado;
@@ -36,19 +37,23 @@ class fila
     int getQuantidade();
     int getQuantidadeConfima();
     void setPTRconfirmado(int );
-  uint8_t getDadoPosConf(int pos);
-     uint8_t getDado();
-     uint8_t getDadoFinal();
-      uint8_t getDadoConf();
-    node* criaNode();
+    void setPTRconfirmadoMod(int);
 
+    uint8_t getDadoPosConf(int pos);
+    uint8_t getDado();
+    uint8_t getDadoFinal();
+    uint8_t getDadoConf();
+    uint8_t getDadoPosConfBigEnd(int pos);
+    node* criaNode();
 
       private:
       int quantidadeNode;
       int posConfirmada;
+      int posConfirmadaBigEnd;
       node *ptrInicio;
       node *ptrFinal;
       node *ptrConfirmado;
+      node *ptrConfirmadoBigEnd;
 };
 
 

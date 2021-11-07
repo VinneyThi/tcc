@@ -3,6 +3,10 @@
 #include <SPI.h>
 #include "fila1.h"
 
+
+
+# define AtiveInverse  1
+
 int flagStartProd   = 0;
 int contEnvio       = 0;
 int flagThread      = 0;
@@ -31,12 +35,62 @@ void do_sendRenv(osjob_t *j);
 void tcc2();
 void carregaBUFF(fila *ptrbackup, fila *ptrbuff);
 void printSet(fila *ptrbackup);
+void LoadBuffBigEnd(fila *ptrbackup, fila *ptrbuff);
+void setPTRconfirmado(fila *ptrBackup);
+
+void setPTRconfirmado(fila *ptrBackup)
+{
+  if(AtiveInverse)
+   {
+     ptrBackup->setPTRconfirmadoMod(2);
+     ptrBackup->setPTRconfirmado(3);
+   }
+   else
+      ptrBackup->setPTRconfirmado(5);
+
+
+}
 
 void carregaBUFF(fila *ptrbackup, fila *ptrbuff)
 {
-  Serial.println(F("**Carrega1** "));
+  if(AtiveInverse)
+    LoadBuffBigEnd(ptrbackup, ptrbuff);
+  else
+    LoadBuffLowEnd(ptrbackup, ptrbuff);
+}
+
+void LoadBuffLowEnd(fila *ptrbackup, fila *ptrbuff)
+{
+  Serial.println(F("**LoadBuffLowEnd** "));
 
   for (int i = 0; i < 5; i++)
+  {
+    uint8_t *ptrAuxDado = new uint8_t;
+    *ptrAuxDado = ptrbackup->getDadoPosConf( (i+1) );
+    Serial.println(i);
+    Serial.println(*ptrAuxDado, HEX);
+    ptrbuff->insereFinal(ptrAuxDado);
+  }
+  Serial.println(F("**LoadBuffLowEnd2** "));
+}
+
+
+void LoadBuffBigEnd(fila *ptrbackup, fila *ptrbuff)
+{
+  Serial.println(F("**LoadBuffBigEnd1** "));
+
+
+  for (int i = 0; i < 2; i++)
+  {
+    uint8_t *ptrAuxDado = new uint8_t;
+
+    *ptrAuxDado = ptrbackup->getDadoPosConfBigEnd( (i+1) );
+    Serial.println(i);
+    Serial.println(*ptrAuxDado, HEX);
+    ptrbuff->insereFinal(ptrAuxDado);
+  }
+
+  for (int i = 0; i < 3; i++)
   {
     uint8_t *ptrAuxDado = new uint8_t;
 
@@ -45,9 +99,8 @@ void carregaBUFF(fila *ptrbackup, fila *ptrbuff)
     Serial.println(*ptrAuxDado, HEX);
     ptrbuff->insereFinal(ptrAuxDado);
   }
-  Serial.println(F("**Carrega2** "));
+  Serial.println(F("**LoadBuffBigEnd2** "));
 }
-
 
 void printSet(fila *ptrbackup)
 {
@@ -222,7 +275,7 @@ void tcc2 (){
         flagReenvio = 0;
         flagFalhaBuff = 0;
 
-        backup->setPTRconfirmado(5); // normal
+        setPTRconfirmado(backup); // normal
         //printSet(backup);
         Serial.println(F("**SETCONF** "));
         /*if (auxAtraso >= 5)//
@@ -232,7 +285,7 @@ void tcc2 (){
             Serial.println(F("&&"));
             Serial.print(buff->getQuantidade());
             Serial.println(F(" Tamanho buff apos recarregar"));
-            backup->setPTRconfirmado(5);
+            setPTRconfirmado(backup);
             os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_sendRenv);
             }*/
         flagThread = 0;
@@ -256,7 +309,7 @@ void tcc2 (){
           Serial.print(F(" Tamanho buff apos recarregar "));
           Serial.println(buff->getQuantidade());
 
-          backup->setPTRconfirmado(5);
+          setPTRconfirmado(backup);
           //printSet(backup);
           Serial.println(F("**SETCONF** "));
           os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_sendRenv);
@@ -281,7 +334,7 @@ void tcc2 (){
           carregaBUFF(backup, buff);
           Serial.println(F("$$$$$$$$$$$$$$$"));
           flagEnvioRapido = 1;
-          backup->setPTRconfirmado(5);
+          setPTRconfirmado(backup);
           //printSet(backup);
           Serial.println(F("**SETCONF** "));
           os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_sendRenv);
@@ -298,7 +351,7 @@ void tcc2 (){
         Serial.print(F(" Tamanho buff apos recarregar "));
         Serial.println(buff->getQuantidade());
 
-        backup->setPTRconfirmado(5);
+        setPTRconfirmado(backup);
         //printSet(backup);
 
         os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_sendRenv);
@@ -345,7 +398,7 @@ void tcc2 (){
       {
         carregaBUFF(backup, buff);
         LMIC.rxDelay = 0;
-        backup->setPTRconfirmado(5);
+        setPTRconfirmado(backup);
         //printSet(backup);
         Serial.println(F("**SETCONF** "));
         os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_sendRenv);
@@ -424,6 +477,11 @@ void onEvent(ev_t ev)
   LMIC.rxDelay = 5;
     Serial.println(F("EV_JOINED"));
     {
+      if(AtiveInverse)
+        Serial.println(F("Ativado modo centopeia"));
+      else
+        Serial.println(F("Legacy"));
+
       flagStartProd = 1;
       Serial.println(LMIC.rxDelay);
       u4_t netid = 0;

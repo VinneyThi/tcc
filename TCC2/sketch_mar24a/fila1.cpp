@@ -11,7 +11,6 @@ node::node()
   this->ptrAntNode = NULL;
 }
 
-
 node::~node()
 {
   free(this->ptrDado);
@@ -27,6 +26,10 @@ uint8_t node::getDado()
 void* node::getPtrProx()
 {
   return this->ptrProxNode;
+}
+void* node::getPtrAnt()
+{
+  return this->ptrAntNode;
 }
 int node::insereDado(uint8_t *ptrDado)
 {
@@ -63,6 +66,7 @@ fila::fila()
   this->ptrFinal = NULL;
   this->ptrInicio = NULL;
   this->ptrConfirmado = NULL;
+  this->ptrConfirmadoBigEnd = NULL;
 
 }
 fila::~fila()
@@ -77,7 +81,6 @@ node* fila::criaNode()
     return NULL;
   return ptrAux;
 }
-
 
 uint8_t fila::getDado()
 { if (!this->quantidadeNode)
@@ -181,6 +184,42 @@ void fila::setPTRconfirmado(int qtnConfirmado)
   }
 }
 
+void fila::setPTRconfirmadoMod(int qtnConfirmado)
+{
+
+
+  if (!this->ptrConfirmadoBigEnd)
+  { node *ptrAux = this->ptrFinal;
+    int contAux = 0;
+    while (contAux < qtnConfirmado -1 )
+    { if (!ptrAux)
+        return ;
+      ptrAux = (node *)ptrAux->getPtrAnt();
+      contAux++;
+    }
+    this-> ptrConfirmadoBigEnd = ptrAux;
+    this->posConfirmadaBigEnd = qtnConfirmado -1;
+  }
+  else
+  {
+    node *ptrAux = this->ptrConfirmadoBigEnd;
+    int contAux = 0;
+    int sizeAux = 0;
+    sizeAux = qtnConfirmado + this->posConfirmadaBigEnd <= this->getQuantidade() ? qtnConfirmado :  qtnConfirmado -1;
+    while (contAux < sizeAux )
+    {
+      if (!ptrAux)
+        return ;
+      ptrAux = (node *) ptrAux->getPtrAnt();
+      contAux++;
+    }
+    this-> ptrConfirmadoBigEnd = ptrAux;
+    this->posConfirmadaBigEnd =  this->posConfirmadaBigEnd + qtnConfirmado;
+  }
+
+  
+}
+
 uint8_t fila:: getDadoConf()
 {
   if (!this->quantidadeNode)
@@ -205,6 +244,22 @@ uint8_t fila::getDadoPosConf(int pos)
       return 0x00;
       
     ptrAux = (node *)ptrAux->getPtrProx();
+    contAux++;
+  }
+  return ptrAux->getDado();
+
+}
+
+uint8_t fila::getDadoPosConfBigEnd(int pos)
+{
+  node *ptrAux = this->ptrConfirmadoBigEnd;
+  int contAux = 0;
+  while (contAux < pos)
+  {
+    if(!ptrAux)
+      return 0x00;
+      
+    ptrAux = (node *)ptrAux->getPtrAnt();
     contAux++;
   }
   return ptrAux->getDado();
