@@ -4,17 +4,29 @@
 #include <lmic.h>
 #include <hal/hal.h>
 #include <SPI.h>
+
 node::node()
 {
   this->ptrDado = NULL;
   this->ptrProxNode = NULL;
   this->ptrAntNode = NULL;
+  this->pos = 0;
 }
 
 node::~node()
 {
   free(this->ptrDado);
 
+}
+
+void node:: SetPos(int pos)
+{
+  this->pos = pos;
+}
+
+int node:: getPos()
+{
+  return this->pos;
 }
 
 uint8_t node::getDado()
@@ -63,6 +75,8 @@ fila::fila()
 {
   this->quantidadeNode = 0;
   this->posConfirmada = 0;
+  this->posStartBigEndConf =0;
+  this->posConfirmadaBigEnd =0;
   this->ptrFinal = NULL;
   this->ptrInicio = NULL;
   this->ptrConfirmado = NULL;
@@ -73,6 +87,8 @@ fila::~fila()
 {
   free(ptrInicio);
   free(ptrFinal);
+  free(ptrConfirmado);
+  free(ptrConfirmadoBigEnd);
 }
 node* fila::criaNode()
 {
@@ -108,9 +124,11 @@ int fila::insereFinal(uint8_t *ptrDado)
     return -1;
 
   ptrAuxNode->insereDado(ptrDado);
+  ptrAuxNode->SetPos(this->quantidadeNode);
 
   if (this->quantidadeNode == 0)
   {
+    
     this->ptrInicio = ptrAuxNode;
     this->ptrFinal = ptrAuxNode;
     this->quantidadeNode++;
@@ -124,6 +142,9 @@ int fila::insereFinal(uint8_t *ptrDado)
 
   }
 
+   
+    this->ptrConfirmadoBigEnd = this->ptrFinal;
+    
   return 1;
 }
 int fila::removeFila()
@@ -153,7 +174,7 @@ int fila::removeFila()
 void fila::setPTRconfirmado(int qtnConfirmado)
 {
 
-
+ 
   if (!this->ptrConfirmado)
   { node *ptrAux = this->ptrInicio;
     int contAux = 0;
@@ -171,6 +192,15 @@ void fila::setPTRconfirmado(int qtnConfirmado)
     node *ptrAux = this->ptrConfirmado;
     int contAux = 0;
     int sizeAux = 0;
+    
+    if(ptrAux->getPos() >= this->posStartBigEndConf)
+    {
+      this->ptrConfirmado = this->ptrConfirmadoBigEnd;
+      this->posConfirmada = this->ptrConfirmadoBigEnd->getPos();
+      this->posConfirmadaBigEnd = 0;
+      return ;
+    }
+
     sizeAux = qtnConfirmado + this->posConfirmada <= this->getQuantidade() ? qtnConfirmado :  qtnConfirmado -1;
     while (contAux < sizeAux )
     {
@@ -186,38 +216,10 @@ void fila::setPTRconfirmado(int qtnConfirmado)
 
 void fila::setPTRconfirmadoMod(int qtnConfirmado)
 {
+  if(! this->posConfirmadaBigEnd)
+    posStartBigEndConf = this->ptrConfirmadoBigEnd->getPos();
 
-
-  if (!this->ptrConfirmadoBigEnd)
-  { node *ptrAux = this->ptrFinal;
-    int contAux = 0;
-    while (contAux < qtnConfirmado -1 )
-    { if (!ptrAux)
-        return ;
-      ptrAux = (node *)ptrAux->getPtrAnt();
-      contAux++;
-    }
-    this-> ptrConfirmadoBigEnd = ptrAux;
-    this->posConfirmadaBigEnd = qtnConfirmado -1;
-  }
-  else
-  {
-    node *ptrAux = this->ptrConfirmadoBigEnd;
-    int contAux = 0;
-    int sizeAux = 0;
-    sizeAux = qtnConfirmado + this->posConfirmadaBigEnd <= this->getQuantidade() ? qtnConfirmado :  qtnConfirmado -1;
-    while (contAux < sizeAux )
-    {
-      if (!ptrAux)
-        return ;
-      ptrAux = (node *) ptrAux->getPtrAnt();
-      contAux++;
-    }
-    this-> ptrConfirmadoBigEnd = ptrAux;
-    this->posConfirmadaBigEnd =  this->posConfirmadaBigEnd + qtnConfirmado;
-  }
-
-  
+  this->posConfirmadaBigEnd = this->posConfirmadaBigEnd + qtnConfirmado;  
 }
 
 uint8_t fila:: getDadoConf()
@@ -233,6 +235,12 @@ int fila::getQuantidadeConfima()
   return aux;
 }
 
+uint8_t fila:: getDadoConfBigEnd()
+{
+  if (!this->quantidadeNode)
+    return NULL;
+  return this->ptrConfirmadoBigEnd->getDado();
+}
 
 uint8_t fila::getDadoPosConf(int pos)
 {
@@ -265,4 +273,9 @@ uint8_t fila::getDadoPosConfBigEnd(int pos)
   return ptrAux->getDado();
 
 
+}
+
+int fila::getStartPosConfBigEnd()
+{
+  return this->posStartBigEndConf;
 }

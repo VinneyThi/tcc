@@ -16,7 +16,7 @@ int flagConfV       = 0;
 int flagEnvioRapido = 0;
 int OldSizeBackup   = 0;
 int flagFalhaBuff   = 0;   // falha do envio do buff
-int linkDead        = 0;
+int linkDead        = 0;   
 
 uint8_t mydata[1];
 uint8_t lastDataSend[1];
@@ -40,20 +40,18 @@ void setPTRconfirmado(fila *ptrBackup);
 
 void setPTRconfirmado(fila *ptrBackup)
 {
-  if(AtiveInverse)
+  if(AtiveInverse && flagEnvioRapido)
    {
      ptrBackup->setPTRconfirmadoMod(2);
      ptrBackup->setPTRconfirmado(3);
    }
    else
       ptrBackup->setPTRconfirmado(5);
-
-
 }
 
 void carregaBUFF(fila *ptrbackup, fila *ptrbuff)
 {
-  if(AtiveInverse)
+  if(AtiveInverse && flagEnvioRapido)
     LoadBuffBigEnd(ptrbackup, ptrbuff);
   else
     LoadBuffLowEnd(ptrbackup, ptrbuff);
@@ -84,7 +82,7 @@ void LoadBuffBigEnd(fila *ptrbackup, fila *ptrbuff)
   {
     uint8_t *ptrAuxDado = new uint8_t;
 
-    *ptrAuxDado = ptrbackup->getDadoPosConfBigEnd( (i+1) );
+    *ptrAuxDado = ptrbackup->getDadoPosConfBigEnd( (i) );
     Serial.println(i);
     Serial.println(*ptrAuxDado, HEX);
     ptrbuff->insereFinal(ptrAuxDado);
@@ -95,7 +93,8 @@ void LoadBuffBigEnd(fila *ptrbackup, fila *ptrbuff)
     uint8_t *ptrAuxDado = new uint8_t;
 
     *ptrAuxDado = ptrbackup->getDadoPosConf( (i+1) );
-    Serial.println(i);
+    Serial.println("Posição ");
+    Serial.println(i+2);
     Serial.println(*ptrAuxDado, HEX);
     ptrbuff->insereFinal(ptrAuxDado);
   }
@@ -126,9 +125,9 @@ void do_sendRenv(osjob_t *j)
 
     uint8_t *ptrAuxDate = new uint8_t;
     *ptrAuxDate = buff->getDado();
-    Serial.println(F("ENVIAR o BUFF"));
+    Serial.print(F("Enviando o Buffer "));
     Serial.print(*ptrAuxDate, HEX);
-    Serial.println(F(" dado buff"));
+    Serial.println(F(" dado"));
     uint8_t myaux[1];
 
     myaux[0] = *ptrAuxDate;
@@ -149,7 +148,6 @@ void do_sendRenv(osjob_t *j)
     }
 
     buff->removeFila();
-    Serial.println(F("QTN BUFF APOS REMOVER"));
     Serial.println(buff->getQuantidade());
   }
 
@@ -173,20 +171,15 @@ void do_send(osjob_t *j)
 
     if (contEnvio <= 4 && !flagFalhaBuff && !flagConfV)
     {        
-      Serial.println(F("!Envio menor que o buffer max !!"));
-      Serial.print(F("Valor a ser enviado "));
+      Serial.println(F("!Envio padrão do Buffer!!"));
+      Serial.print(F("Valor a ser enviado  "));
       Serial.println(mydata[0], HEX);
       
       Serial.print(F("Valor do ultimo dado enviado "));
       Serial.println(lastDataSend[0], HEX);
 
-      Serial.print(F("Valor do contador antes "));
-      Serial.println(contEnvio);
-
       contEnvio = (lastDataSend[0] != mydata[0])  && (contEnvio == 0 ) && (buff->getQuantidade() == 0) ? ++contEnvio: contEnvio ;  
-      Serial.print(F("Valor do contador apos "));
-      Serial.println(contEnvio);
-      
+
       LMIC.rxDelay = 1;
       LMIC_setTxData2(1, mydata, sizeof(mydata), 0);
     }
@@ -196,12 +189,13 @@ void do_send(osjob_t *j)
       contEnvio = 0;
       flagReenvio = 1;
       flagThread = 1;
-      Serial.println(F("!! Enviado com a flag 1 !!"));
+
+      Serial.println(F("!! Enviado solicitando confirmação  !!"));
       Serial.println(mydata[0], HEX);
-      Serial.println(F("!! Enviado com a flag 1 !!"));
+      Serial.println(F("!!  Enviado solicitando confirmação !!"));
       lastDataSend[0] = mydata[0];
 
-       LMIC.rxDelay = 5;
+      LMIC.rxDelay = 5;
       LMIC_setTxData2(1, mydata, sizeof(mydata), 1);
     }
 
@@ -219,8 +213,8 @@ void do_send(osjob_t *j)
 
     Serial.print(F("VALOR DO pacote enviado "));
     Serial.println(mydata[0], HEX);
-    Serial.print(contEnvio);
-    Serial.println(F(" Valor Contador"));
+    Serial.print(F("Valor Contador "));
+    Serial.println(contEnvio);
     Serial.println(F("Packet queued"));
 
     Serial.print(F("Sending packet on frequency: "));
@@ -237,12 +231,10 @@ void tcc2 (){
     Serial.println(LMIC.rxDelay);
 
     Serial.println(F("EV_TXCOMPLETE (includes waiting for RX windows)"));
-    Serial.print(F("ContEnvio "));
-    Serial.print(contEnvio);
-
-    auxAtraso = backup->getQuantidade() - backup->getQuantidadeConfima();
+    
+    auxAtraso =  AtiveInverse == 1 && flagEnvioRapido == 1?  backup->getQuantidade() - backup->getQuantidadeConfima() +2 :  backup->getQuantidade() - backup->getQuantidadeConfima();
     OldSizeBackup = backup->getQuantidade();
-    Serial.println(F("Flags"));
+    Serial.println(F("********Flags********"));
     Serial.print(F("FlagReenvio "));
     Serial.println(flagReenvio);
     Serial.print(F("FlagFalhaBuff "));
@@ -255,39 +247,31 @@ void tcc2 (){
     Serial.println(flagEnvioRapido);
     Serial.print(F("TAMANHO - POSCONF "));
     Serial.println(auxAtraso);
+    Serial.print(F("Posição de inicio da HeadBig "));
+    Serial.println(backup->getStartPosConfBigEnd());
 
     if (LMIC.txrxFlags & TXRX_ACK)
     {
       Serial.println(F("Received ack"));
       int auxTamBuff = buff->getQuantidade();
-      Serial.print(buff->getQuantidade());
-      Serial.println(F(" Tamanho buff")); // 10 minutos crash aqui mostars as flags depois.
+    
+      Serial.print(F("Tamanho Buffer ")); 
+      Serial.println(buff->getQuantidade());
       if (flagReenvio && !flagConfV)
       {
-
         if (buff->getQuantidade() > 0) // add 06/07
-
           Serial.println(F("Antes do remove  ack"));
+          
         for (int i = 0; i < auxTamBuff; i++) //p
           buff->removeFila();
+
         Serial.println(F("Deposi do remove  ack"));
 
-        flagReenvio = 0;
+        flagReenvio   = 0;
         flagFalhaBuff = 0;
 
-        setPTRconfirmado(backup); // normal
-        //printSet(backup);
-        Serial.println(F("**SETCONF** "));
-        /*if (auxAtraso >= 5)//
-            {
-            carregaBUFF(backup,buff);
-            flagEnvioRapido = 1;
-            Serial.println(F("&&"));
-            Serial.print(buff->getQuantidade());
-            Serial.println(F(" Tamanho buff apos recarregar"));
-            setPTRconfirmado(backup);
-            os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_sendRenv);
-            }*/
+        setPTRconfirmado(backup);       
+        Serial.println(F("**setPTRconfirmado** "));
         flagThread = 0;
 
         Serial.println("Volta para envio normal");
@@ -329,21 +313,19 @@ void tcc2 (){
         if (auxAtraso > 5)
         {
           Serial.println(F("*************"));
-          Serial.println(F("Show"));
+          Serial.println(F("Atrasso > 5"));
           Serial.println(F("*************"));
           carregaBUFF(backup, buff);
-          Serial.println(F("$$$$$$$$$$$$$$$"));
+          
           flagEnvioRapido = 1;
           setPTRconfirmado(backup);
-          //printSet(backup);
-          Serial.println(F("**SETCONF** "));
+          Serial.println(F("**setPTRconfirmado** "));
           os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_sendRenv);
         }
       }
-
-      else if (auxAtraso >= 5) //
+      else if (auxAtraso >= 5) 
       {
-
+        Serial.println(F("Atrasso > 5"));
         carregaBUFF(backup, buff);
         flagEnvioRapido = 1;
         LMIC.rxDelay = 1;
@@ -352,21 +334,18 @@ void tcc2 (){
         Serial.println(buff->getQuantidade());
 
         setPTRconfirmado(backup);
-        //printSet(backup);
+        Serial.println(F("**setPTRconfirmado** "));
 
         os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_sendRenv);
       }
       else
       {
-        Serial.println("*****10***");
         flagConfV = 0;
         flagThread = 0;
         os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_send);
       }
     }
 
-    //flagFalhaBuff =0;
-    //flagReenvio =0;
 
     //****************************************************************************
     else if (!(LMIC.txrxFlags & TXRX_ACK))

@@ -17,11 +17,14 @@ class node
     uint8_t getDado();
     void* getPtrProx();
     void* getPtrAnt();
+    void SetPos(int pos);
+    int getPos();
 
     private:
       uint8_t *ptrDado;
       void *ptrProxNode;
-       void *ptrAntNode;
+      void *ptrAntNode;
+      int pos;
 
 };
 
@@ -43,13 +46,16 @@ class fila
     uint8_t getDado();
     uint8_t getDadoFinal();
     uint8_t getDadoConf();
+    uint8_t getDadoConfBigEnd();
     uint8_t getDadoPosConfBigEnd(int pos);
+    int getStartPosConfBigEnd();
     node* criaNode();
 
       private:
       int quantidadeNode;
       int posConfirmada;
       int posConfirmadaBigEnd;
+      int posStartBigEndConf;
       node *ptrInicio;
       node *ptrFinal;
       node *ptrConfirmado;
