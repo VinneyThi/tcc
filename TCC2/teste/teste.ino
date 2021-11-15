@@ -70,7 +70,7 @@ void LoadBuffBigEnd(fila *ptrbackup)
   {
     uint8_t *ptrAuxDado = new uint8_t;
 
-    *ptrAuxDado = ptrbackup->getDadoPosConfBigEnd( (i+1) );
+    *ptrAuxDado = ptrbackup->getDadoPosConfBigEnd((i));
     Serial.println(i);
     Serial.println(*ptrAuxDado, HEX);
     
@@ -81,7 +81,7 @@ void LoadBuffBigEnd(fila *ptrbackup)
     uint8_t *ptrAuxDado = new uint8_t;
 
     *ptrAuxDado = ptrbackup->getDadoPosConf( (i+1) );
-    Serial.println(i);
+    Serial.println(i+2);
     Serial.println(*ptrAuxDado, HEX);
     
   }
@@ -115,15 +115,33 @@ void testeFila(fila *ptrbackup)
 }
 
 
+
+
+void insere10(fila *ptrbackup)
+{
+    for (int i = 0; i < 2; i++)
+  {
+    uint8_t *ptrAuxDado = new uint8_t;
+    backup->insereFinal(mydata);    
+    mydata[0]++;
+    Serial.print("Valor inserido ");
+    Serial.println(backup->getDadoFinal(), HEX);
+  }
+
+}
+
+
 void simularConf(fila *ptrbackup, int count)
 {
   for (int i = 0; i < count; i++)
     {
-      setPTRconfirmado(5);
+      setPTRconfirmado(ptrbackup);
       
-      Serial.print("Valor confirmado ");
+      Serial.print("Valor confirmado Leagacy ");
       Serial.println(backup->getDadoConf(), HEX);
-      Serial.println("Valor confirmado ");
+
+      Serial.print("Valor confirmado  Centopeia ");
+      Serial.println(backup->getDadoConfBigEnd(), HEX);
       
       carregaBUFF(ptrbackup);
     }
@@ -137,14 +155,14 @@ void setup()
   // xTaskCreatePinnedToCore(loop2, "loop2", 8192, NULL, 1, NULL, 0); //Cria a tarefa "loop2()" com prioridade 1, atribuída ao core 0
   Serial.print(sizeof(node));
   Serial.println(F("Starting"));
-
+  testeFila(backup);
 
 }
 
 void loop()
 {
-  testeFila(backup);
-  simularConf(backup, 3);
-
-  delay(60000);
+  
+  simularConf(backup, 1);
+  delay(10000);
+  insere10(backup);
 }

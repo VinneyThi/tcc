@@ -2,7 +2,17 @@
 #include <hal/hal.h>
 #include <SPI.h>
 #include "fila1.h"
+#include <TinyGPS++.h>
+#include <axp20x.h>
 
+
+double latu, lon, alt;
+TinyGPSPlus gps;
+HardwareSerial GPS(1);
+AXP20X_Class axp;
+uint32_t LatitudeBinary, LongitudeBinary;
+uint16_t altitudeGps;
+uint8_t hdopGps;
 
 
 # define AtiveInverse  1
@@ -18,7 +28,7 @@ int OldSizeBackup   = 0;
 int flagFalhaBuff   = 0;   // falha do envio do buff
 int linkDead        = 0;   
 
-uint8_t mydata[1];
+uint8_t mydata[9];
 uint8_t lastDataSend[1];
 
 fila *buff   = new PROGMEM fila;
@@ -37,6 +47,7 @@ void carregaBUFF(fila *ptrbackup, fila *ptrbuff);
 void printSet(fila *ptrbackup);
 void LoadBuffBigEnd(fila *ptrbackup, fila *ptrbuff);
 void setPTRconfirmado(fila *ptrBackup);
+void CatCoordGPS();
 
 void setPTRconfirmado(fila *ptrBackup)
 {
@@ -128,9 +139,10 @@ void do_sendRenv(osjob_t *j)
     Serial.print(F("Enviando o Buffer "));
     Serial.print(*ptrAuxDate, HEX);
     Serial.println(F(" dado"));
-    uint8_t myaux[1];
+    uint8_t myaux[9];
 
-    myaux[0] = *ptrAuxDate;
+    for (int i= 0 ; i < 9 ; i++)
+      myaux[i] = ptrAuxDate[i];
 
     if (buff->getQuantidade() == 1 && !flagConfV && !flagEnvioRapido) // !flagConfV !flagEnvioRapido
     {
@@ -208,7 +220,7 @@ void do_send(osjob_t *j)
     else if (flagConfV)
     {
     LMIC.rxDelay = 5;
-      LMIC_setTxData2(1, mydata, sizeof(mydata), 1);
+      LMIC_setTxData2(1, mydata, sizeof(mydata), 1);      
     }
 
     Serial.print(F("VALOR DO pacote enviado "));
@@ -415,6 +427,44 @@ void tcc2 (){
 
 
 
+void CatCoordGPS()
+{
+  if (gps.location.isUpdated())
+  {
+      latu = gps.location.lat();
+      lon=gps.location.lng();
+  }
+if (gps.altitude.isUpdated())
+    LatitudeBinary = ((gps.location.lat() + 90) / 180) * 16777215;
+    LongitudeBinary = ((gps.location.lng () + 180) / 360) * 16777215;
+
+    mydata[0] = ( LatitudeBinary >> 16 ) & 0xFF;
+    mydata[1] = ( LatitudeBinary >> 8 ) & 0xFF;
+    mydata[2] = LatitudeBinary & 0xFF;
+
+    mydata[3] = ( LongitudeBinary >> 16 ) & 0xFF;
+    mydata[4] = ( LongitudeBinary >> 8 ) & 0xFF;
+    mydata[5] = LongitudeBinary & 0xFF;
+
+    altitudeGps = gps.altitude.meters();
+    mydata[6] = ( altitudeGps >> 8 ) & 0xFF;
+    mydata[7] = altitudeGps & 0xFF;
+
+    hdopGps = gps.hdop.hdop() * 10;
+    mydata[8] = hdopGps & 0xFF;
+  
+  Serial.println(gps.location.lat(), 5);
+  Serial.println(gps.location.lat(), 5);
+  Serial.print("Longitude : ");
+  Serial.println(gps.location.lng(), 4);
+  Serial.print("Satellites: ");
+  Serial.println(gps.satellites.value());
+  Serial.print("Altitude  : ");
+  Serial.print(gps.altitude.feet() / 3.2808);
+
+}
+
+
 static const u1_t PROGMEM APPEUI[8] = {0x43, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 void os_getArtEui(u1_t *buf)
 {
@@ -507,6 +557,7 @@ void onEvent(ev_t ev)
   case EV_TXCOMPLETE: 
     tcc2();
     LMIC.rxDelay = 5;
+
     break;
   case EV_LOST_TSYNC:
     Serial.println(F("EV_LOST_TSYNC"));
@@ -545,6 +596,21 @@ void setup()
   Serial.println(F("Starting"));
   mydata[0] = 0x00;
 
+ Wire.begin(21, 22); // configurado a comunicação com o axp
+  if (!axp.begin(Wire, AXP192_SLAVE_ADDRESS)) {
+    Serial.println("AXP192 Begin PASS");
+  } else {
+    Serial.println("AXP192 Begin FAIL");
+  }
+  axp.setPowerOutPut(AXP192_LDO2, AXP202_ON);
+  axp.setPowerOutPut(AXP192_LDO3, AXP202_ON);
+  axp.setPowerOutPut(AXP192_DCDC2, AXP202_ON);
+  axp.setPowerOutPut(AXP192_EXTEN, AXP202_ON);
+  axp.setPowerOutPut(AXP192_DCDC1, AXP202_ON);
+  GPS.begin(9600, SERIAL_8N1, 34, 12);  // configurando comunicação com o NEO6.
+  Serial.println(F("Starting"));
+
+
   backup->insereFinal(mydata);
   buff->insereFinal(mydata);
   contEnvio++;
@@ -574,8 +640,14 @@ void loop2(void *z)
   {
     if( flagStartProd)
     {
-       mydata[0]++;
+      //  mydata[0]++;
 
+       while (GPS.available())
+        gps.encode(GPS.read());
+
+      CatCoordGPS();
+      
+      
       backup->insereFinal(mydata);
   
       Serial.print(backup->getQuantidade());
@@ -584,7 +656,7 @@ void loop2(void *z)
       Serial.println(F(" Confirmados"));
 
       Serial.print(F(" Novo dado gerado"));
-      Serial.println(mydata[0], HEX);
+      Serial.println(mydata[0]);
 
       if (buff->getQuantidade() <= 4 && !flagThread)
      {
