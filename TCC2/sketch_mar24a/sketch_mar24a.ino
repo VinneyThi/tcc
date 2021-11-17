@@ -16,6 +16,7 @@ uint8_t hdopGps;
 
 
 # define AtiveInverse  1
+# define EvitaEnvioVazio 2
 
 int flagStartProd   = 0;
 int contEnvio       = 0;
@@ -321,7 +322,17 @@ void tcc2 (){
         Serial.println(F("*************"));
         LMIC.rxDelay = 1;
         flagFalhaBuff = 0; // coloquei*
+       
+       if(flagConfV > 1)
+       {
+          flagConfV--;
+          os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_send);
+          return ;
+       }
+       else
         flagConfV = 0;
+
+       
         if (auxAtraso > 5)
         {
           Serial.println(F("*************"));
@@ -376,7 +387,7 @@ void tcc2 (){
       {
         Serial.print(F("Tamanho buff apos carga via backup "));
         Serial.println(buff->getQuantidade());
-        flagConfV = 1; // yflagEnvioRapido
+        flagConfV = EvitaEnvioVazio; // yflagEnvioRapido
         os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_send);
       }
       else if (flagConfV)
