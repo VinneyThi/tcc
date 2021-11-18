@@ -7,12 +7,18 @@
 
 
 double latu, lon, alt;
+
+
 TinyGPSPlus gps;
 HardwareSerial GPS(1);
 AXP20X_Class axp;
 uint32_t LatitudeBinary, LongitudeBinary;
 uint16_t altitudeGps, id = 0;
 uint8_t hdopGps;
+
+
+  double auxCoord[4]; 
+
 
 # define AtiveInverse  1
 # define EvitaEnvioVazio 2
@@ -74,8 +80,8 @@ void LoadBuffLowEnd(fila *ptrbackup, fila *ptrbuff)
 
   for (int i = 0; i < 5; i++)
   {
-    uint8_t *ptrAuxDado = new uint8_t;
-    *ptrAuxDado = ptrbackup->getDadoPosConf( (i + 1) );
+    double *ptrAuxDado ;
+    ptrAuxDado = ptrbackup->getDadoPosConf( (i + 1) );
     Serial.println(i);
     Serial.println(*ptrAuxDado, HEX);
     ptrbuff->insereFinal(ptrAuxDado);
@@ -91,23 +97,33 @@ void LoadBuffBigEnd(fila *ptrbackup, fila *ptrbuff)
 
   for (int i = 0; i < 2; i++)
   {
-    uint8_t *ptrAuxDado = new uint8_t;
+    double *ptrAuxDado;
+    double *ptrAuxInsert = new double[4];
+    
+    ptrAuxDado = ptrbackup->getDadoPosConfBigEnd( (i) );
 
-    *ptrAuxDado = ptrbackup->getDadoPosConfBigEnd( (i) );
+    for (int i =0 ; i < 4 ; i++)
+      ptrAuxInsert[i] = ptrAuxDado[i];
+      
     Serial.println(i);
     Serial.println(*ptrAuxDado, HEX);
     ptrbuff->insereFinal(ptrAuxDado);
   }
 
-  for (int i = 0; i < 3; i++)
+  for (int i = 0; i < 4; i++)
   {
-    uint8_t *ptrAuxDado = new uint8_t;
+    double *ptrAuxDado;
+    double *ptrAuxInsert = new double[4];
 
-    *ptrAuxDado = ptrbackup->getDadoPosConf( (i + 1) );
+    ptrAuxDado = ptrbackup->getDadoPosConf( (i + 1) );
+    
+    for (int i =0 ; i < 4 ; i++)
+     ptrAuxInsert[i] = ptrAuxDado[i];
+    
     Serial.println("Posição ");
     Serial.println(i + 2);
-    Serial.println(*ptrAuxDado, HEX);
-    ptrbuff->insereFinal(ptrAuxDado);
+    Serial.println(*ptrAuxInsert, HEX);
+    ptrbuff->insereFinal(ptrAuxInsert);
   }
   Serial.println(F("**LoadBuffBigEnd2** "));
 }
@@ -116,8 +132,8 @@ void printSet(fila *ptrbackup)
 {
   Serial.println(F("**//printSet** "));
 
-  uint8_t *ptrAuxDado = new uint8_t;
-  *ptrAuxDado = ptrbackup->getDadoPosConf(0);
+  double *ptrAuxDado;
+  ptrAuxDado = ptrbackup->getDadoPosConf(0);
   Serial.println(*ptrAuxDado, HEX);
 
   Serial.println(F("**//printSet** "));
@@ -134,24 +150,46 @@ void do_sendRenv(osjob_t *j)
   {
     Serial.println(F("**do_sendRenv** "));
 
-    uint8_t *ptrAuxDate = new uint8_t;
-    *ptrAuxDate = buff->getDado();
+    double *ptrAuxDate;
+    ptrAuxDate = buff->getDado();
+
+
+
+    
     Serial.print(F("Enviando o Buffer "));
     Serial.print(*ptrAuxDate, HEX);
     Serial.println(F(" dado"));
     uint8_t myaux[11];
+  
+   uint32_t LatitudeBinaryAux, LongitudeBinaryAux;
+   uint16_t altitudeGpsAux, AuxId; 
+   uint8_t hdopGpsAux;
 
-    for (int i = 0 ; i < 11 ; i++)
-      myaux[i] = ptrAuxDate[i];
+  
+  LatitudeBinaryAux = (( ptrAuxDate[0] + 90) / 180) * 16777215;
+  LongitudeBinaryAux = (( ptrAuxDate[1] + 180) / 360) * 16777215;
+  altitudeGpsAux=  ptrAuxDate[2];
+  AuxId = (uint16_t)ptrAuxDate[3];
+  hdopGpsAux = 2.5;
+    
+  myaux[0] = ( LatitudeBinaryAux >> 16 ) & 0xFF;
+  myaux[1] = ( LatitudeBinaryAux >> 8 ) & 0xFF;
+  myaux[2] = LatitudeBinaryAux & 0xFF;
 
-    int  idteste = ((myaux[ 8] << 8)) + myaux[ 9];
-    int  HOP = myaux[ 10];
+  myaux[3] = ( LongitudeBinaryAux >> 16 ) & 0xFF;
+  myaux[4] = ( LongitudeBinaryAux >> 8 ) & 0xFF;
+  myaux[5] = LongitudeBinaryAux & 0xFF;
 
-    Serial.print(F("Valor id do backup "));
-    Serial.println(idteste);
+  altitudeGps = altitudeGpsAux;
+  myaux[6] = ( altitudeGpsAux >> 8 ) & 0xFF;
+  myaux[7] = altitudeGpsAux & 0xFF;
 
-    Serial.print(F("HOP do backup "));
-    Serial.println(HOP);
+  myaux[8] = ( AuxId >> 8 ) & 0xFF;
+  myaux[9] = AuxId & 0xFF;
+
+  hdopGpsAux = hdopGpsAux * 10;
+  myaux[10] = hdopGpsAux & 0xFF;
+
 
     if (buff->getQuantidade() == 1 && !flagConfV && !flagEnvioRapido) // !flagConfV !flagEnvioRapido
     {
@@ -284,7 +322,10 @@ void tcc2 () {
         Serial.println(F("Antes do remove  ack"));
 
       for (int i = 0; i < auxTamBuff; i++) //p
+      { Serial.println(i);
+      Serial.println("remove");
         buff->removeFila();
+      }
 
       Serial.println(F("Deposi do remove  ack"));
 
@@ -465,6 +506,20 @@ void CatCoordGPS()
 
   id++;
   uint16_t AuxInt = id;
+
+  
+  double TESTE3[3];
+  auxCoord[0]= gps.location.lat();
+   auxCoord[1] = gps.location.lng();
+   auxCoord[2] = gps.altitude.meters();
+   auxCoord[3] = id;
+
+Serial.println("tEST AUX COORD");
+  Serial.println(TESTE3[0] ,5);
+  Serial.println(TESTE3[1] ,5);
+  Serial.println(TESTE3[2] ,5);
+  Serial.println("tEST AUX COORD");
+  
   mydata[0] = ( LatitudeBinary >> 16 ) & 0xFF;
   mydata[1] = ( LatitudeBinary >> 8 ) & 0xFF;
   mydata[2] = LatitudeBinary & 0xFF;
@@ -647,8 +702,8 @@ void setup()
   Serial.println(F("Starting"));
 
 
-  backup->insereFinal(mydata);
-  buff->insereFinal(mydata);
+  backup->insereFinal(auxCoord);
+  buff->insereFinal(auxCoord);
   contEnvio++;
   // LMIC init
   os_init();
@@ -675,7 +730,7 @@ void loop2(void *z)
   Serial.printf("\n**loop2() em core: %d /n", xPortGetCoreID()); //Mostra no monitor em qual core o loop2() foi chamado
   while (1)
   {
-    uint8_t *ptrAuxDate = new uint8_t;
+    double *ptrAuxDate;
 
     Serial.println("!!!!!!!!!!!");
     Serial.print("Memo " );
@@ -689,18 +744,22 @@ void loop2(void *z)
         gps.encode(GPS.read());
 
       CatCoordGPS();
+      
+      double *ptrAuxInsert = new double[4];
+      
+      for (int i =0 ; i < 4 ; i++)
+        ptrAuxInsert[i] = auxCoord[i];
+        
+      backup->insereFinal(ptrAuxInsert);
+      ptrAuxDate = backup->getDado();
+    
+    Serial.print(F(" Novo dado TESTE AUX LAT  " ));
+    Serial.println(ptrAuxDate[0] ,5);
 
+        Serial.println(auxCoord[0] ,5);
 
-      backup->insereFinal(mydata);
-      *ptrAuxDate = backup->getDado();
-
-      //       int  idteste3 = ((ptrAuxDate[8] << 8) ) + ptrAuxDate[9];
-      //      Serial.print("ID*!!&  : ");
-      //      Serial.println(id);
-      //      Serial.print(F("Valor id backup !! "));
-      //      Serial.println(idteste3);
-      //            Serial.print(F("Valor id backup !!@ "));
-      //      Serial.println(ptrAuxDate[8]);
+            
+    Serial.print(F(" Novo dado TESTE AUX LAT  " ));
 
       Serial.print(backup->getQuantidade());
       Serial.println(F(" Tamanho backup"));
@@ -712,7 +771,11 @@ void loop2(void *z)
 
       if (buff->getQuantidade() <= 4 && !flagThread)
       {
-        buff->insereFinal(mydata);
+        double *ptrAuxInsert = new double[4];
+        for (int i =0 ; i < 4 ; i++)
+          ptrAuxInsert[i] = auxCoord[i];
+          
+        buff->insereFinal(ptrAuxInsert);
         Serial.println(F(" Tamanho buff "));
         Serial.print(buff->getQuantidade());
         contEnvio++;

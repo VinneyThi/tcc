@@ -10,18 +10,18 @@ class node
   public:
     node();
     ~node();
-    int insereDado(uint8_t *);
+    int insereDado(double *);
     int excluiDado(void *);
     int atualizaPTR(void *);
     int atualizaPTRAnt(void *);
-    uint8_t getDado();
+    double * getDado();
     void* getPtrProx();
     void* getPtrAnt();
     void SetPos(int pos);
     int getPos();
 
     private:
-      uint8_t *ptrDado;
+      double *ptrDado;
       void *ptrProxNode;
       void *ptrAntNode;
       int pos;
@@ -35,19 +35,20 @@ class fila
     fila();
     ~fila();
     void* criaFila();
-    int insereFinal(uint8_t *ptrDado);
+    int insereFinal(double *ptrDado);
     int removeFila();
     int getQuantidade();
+    int getPos();
     int getQuantidadeConfima();
     void setPTRconfirmado(int );
     void setPTRconfirmadoMod(int);
 
-    uint8_t getDadoPosConf(int pos);
-    uint8_t getDado();
-    uint8_t getDadoFinal();
-    uint8_t getDadoConf();
-    uint8_t getDadoConfBigEnd();
-    uint8_t getDadoPosConfBigEnd(int pos);
+    double * getDadoPosConf(int pos);
+    double * getDado();
+    double * getDadoFinal();
+    double * getDadoConf();
+    double * getDadoConfBigEnd();
+    double * getDadoPosConfBigEnd(int pos);
     int getStartPosConfBigEnd();
     node* criaNode();
 
