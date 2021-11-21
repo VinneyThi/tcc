@@ -112,7 +112,7 @@ void LoadBuffBigEnd(fila *ptrbackup, fila *ptrbuff)
     
     ptrAuxDado = ptrbackup->getDadoPosConfBigEnd( (i) );
 
-    for (int j =0 ; j < 3 ; j++)
+    for (int j =0 ; j < 4 ; j++)
       ptrAuxInsert[j] = ptrAuxDado[j];
       
     Serial.print("id: ");
