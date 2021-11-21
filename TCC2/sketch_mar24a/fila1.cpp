@@ -32,7 +32,7 @@ int node:: getPos()
 double * node::getDado()
 {
   
-  return this->ptrDado;;
+  return this->ptrDado;
 }
 void* node::getPtrProx()
 {
@@ -177,6 +177,8 @@ int fila::removeFila()
 void fila::setPTRconfirmado(int qtnConfirmado)
 {
 
+  if(  this->posConfirmada + qtnConfirmado > this->quantidadeNode -1 )
+    return ;
  
   if (!this->ptrConfirmado)
   { node *ptrAux = this->ptrInicio;
@@ -223,6 +225,9 @@ void fila::setPTRconfirmadoMod(int qtnConfirmado)
   if(! this->posConfirmadaBigEnd)
     posStartBigEndConf = this->ptrConfirmadoBigEnd->getPos();
 
+  if(  this->posConfirmadaBigEnd + qtnConfirmado > this->quantidadeNode -1 )
+    this->posConfirmadaBigEnd =  this->quantidadeNode -1;
+    
   this->posConfirmadaBigEnd = this->posConfirmadaBigEnd + qtnConfirmado;  
 }
 
@@ -250,13 +255,19 @@ double * fila::getDadoPosConf(int pos)
 {
   node *ptrAux = this->ptrConfirmado;
   int contAux = 0;
-  while (contAux < pos)
+    
+  while ( (contAux < pos) && ( (this->posConfirmada + contAux) < this->quantidadeNode - 1) )
   {
-    if(!ptrAux)
-      return 0x00;
+
+      
+      if(!ptrAux->getPtrProx())
+      return ptrAux->getDado();
       
     ptrAux = (node *)ptrAux->getPtrProx();
+        if(!ptrAux)
+      return this->ptrInicio->getDado();
     contAux++;
+    
   }
   return ptrAux->getDado();
 
@@ -266,7 +277,7 @@ double * fila::getDadoPosConfBigEnd(int pos)
 {
   node *ptrAux = this->ptrConfirmadoBigEnd;
   int contAux = 0;
-  while (contAux < pos)
+  while (( contAux < pos))
   {
     if(!ptrAux)
       return 0x00;
