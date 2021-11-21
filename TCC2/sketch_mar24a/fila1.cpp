@@ -196,13 +196,6 @@ void fila::setPTRconfirmado(int qtnConfirmado)
     int contAux = 0;
     int sizeAux = 0;
     
-    if( qtnConfirmado != 5 && ptrAux->getPos() >= this->posStartBigEndConf)
-    {
-      this->ptrConfirmado = this->ptrConfirmadoBigEnd;
-      this->posConfirmada = this->ptrConfirmadoBigEnd->getPos();
-      this->posConfirmadaBigEnd = 0;
-      return ;
-    }
 
     sizeAux = qtnConfirmado + this->posConfirmada <= this->getQuantidade() ? qtnConfirmado :  qtnConfirmado -1;
     while (contAux < sizeAux )
@@ -211,6 +204,14 @@ void fila::setPTRconfirmado(int qtnConfirmado)
         return ;
       ptrAux = (node *) ptrAux->getPtrProx();
       contAux++;
+    }
+
+    if( qtnConfirmado != 5 && ptrAux->getPos() >= this->posStartBigEndConf)
+    {
+      this->ptrConfirmado = this->ptrConfirmadoBigEnd;
+      this->posConfirmada = this->ptrConfirmadoBigEnd->getPos();
+      this->posConfirmadaBigEnd = 0;
+      return ;
     }
     this-> ptrConfirmado = ptrAux;
     this->posConfirmada =  this->posConfirmada + qtnConfirmado;

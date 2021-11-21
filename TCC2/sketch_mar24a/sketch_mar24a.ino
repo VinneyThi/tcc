@@ -20,7 +20,7 @@ uint8_t hdopGps;
   double auxCoord[4]; 
 
 
-# define AtiveInverse  0
+# define AtiveInverse  1
 # define EvitaEnvioVazio 2
 
 int flagStartProd   = 0;
@@ -112,23 +112,23 @@ void LoadBuffBigEnd(fila *ptrbackup, fila *ptrbuff)
     
     ptrAuxDado = ptrbackup->getDadoPosConfBigEnd( (i) );
 
-    for (int i =0 ; i < 3 ; i++)
-      ptrAuxInsert[i] = ptrAuxDado[i];
+    for (int j =0 ; j < 3 ; j++)
+      ptrAuxInsert[j] = ptrAuxDado[j];
       
     Serial.print("id: ");
     Serial.println(ptrAuxDado[3]);;
     ptrbuff->insereFinal(ptrAuxDado);
   }
 
-  for (int i = 0; i < 4; i++)
+  for (int i = 0; i < 3; i++)
   {
     double *ptrAuxDado;
     double *ptrAuxInsert = new double[4];
 
     ptrAuxDado = ptrbackup->getDadoPosConf( (i + 1) );
     
-    for (int i =0 ; i < 4 ; i++)
-     ptrAuxInsert[i] = ptrAuxDado[i];
+    for (int j =0 ; j < 4 ; j++)
+     ptrAuxInsert[j] = ptrAuxDado[j];
     
     Serial.print("id: ");
     Serial.println(ptrAuxDado[3]);
@@ -467,7 +467,7 @@ void tcc2 () {
       Serial.println(F("**SETCONF** "));
       os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_sendRenv);
     }
-    else if (auxAtraso > 4  && flagEnvioRapido && buff->getQuantidade() > 0)
+    else if (auxAtraso > 0  && flagEnvioRapido && buff->getQuantidade() > 0)
     {
       LMIC.rxDelay = 0;
       Serial.print(F("Envio rapido inutil"));
