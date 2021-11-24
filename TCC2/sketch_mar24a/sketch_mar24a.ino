@@ -112,7 +112,7 @@ void LoadBuffBigEnd(fila *ptrbackup, fila *ptrbuff)
     
     ptrAuxDado = ptrbackup->getDadoPosConfBigEnd( (i) );
 
-    for (int j =0 ; j < 4 ; j++)
+    for (int j =0 ; j < 3 ; j++)
       ptrAuxInsert[j] = ptrAuxDado[j];
       
     Serial.print("id: ");
@@ -454,7 +454,9 @@ void tcc2 () {
     }
     else if (flagConfV)
     {
-
+      if(flagConf == 1)
+        flagConfV = EvitaEnvioVazio;
+        
       os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_send);
     }
 
