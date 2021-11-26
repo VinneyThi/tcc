@@ -21,7 +21,7 @@ uint8_t hdopGps;
 
 
 # define AtiveInverse  1
-# define EvitaEnvioVazio 2
+# define EvitaEnvioVazio 3
 
 int flagStartProd   = 0;
 int contEnvio       = 0;
@@ -34,8 +34,10 @@ int OldSizeBackup   = 0;
 int flagFalhaBuff   = 0;   // falha do envio do buff
 int linkDead        = 0;
 
-uint8_t mydata[11];
+uint8_t mydata[12];
 uint8_t lastDataSend[1];
+
+
 
 fila *buff   = new PROGMEM fila;
 fila *backup = new PROGMEM fila;
@@ -247,8 +249,9 @@ void do_send(osjob_t *j)
       Serial.println(lastDataSend[0], HEX);
 
       contEnvio = (lastDataSend[0] != mydata[0])  && (contEnvio == 0 ) && (buff->getQuantidade() == 0) ? ++contEnvio : contEnvio ;
-
+      
       LMIC.rxDelay = 1;
+      mydata[11] = 0;
       LMIC_setTxData2(1, mydata, sizeof(mydata), 0);
     }
 
@@ -263,6 +266,7 @@ void do_send(osjob_t *j)
       Serial.println(F("!!  Enviado solicitando confirmação !!"));
       lastDataSend[0] = mydata[0];
 
+      mydata[11] = 1;
       LMIC.rxDelay = 5;
       LMIC_setTxData2(1, mydata, sizeof(mydata), 1);
     }
@@ -270,12 +274,14 @@ void do_send(osjob_t *j)
     else if (flagFalhaBuff)
     {
       flagFalhaBuff = 0; //y
+      mydata[11] = 1;
       LMIC_setTxData2(1, mydata, sizeof(mydata), 1);
     }
 
     else if (flagConfV)
     {
       LMIC.rxDelay = 5;
+      mydata[11] = 1;
       LMIC_setTxData2(1, mydata, sizeof(mydata), 1);
     }
 
