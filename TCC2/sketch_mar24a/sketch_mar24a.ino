@@ -21,7 +21,7 @@ uint8_t hdopGps;
 
 
 # define AtiveInverse  1
-# define EvitaEnvioVazio 3
+# define EvitaEnvioVazio 4
 
 int flagStartProd   = 0;
 int contEnvio       = 0;
@@ -30,11 +30,11 @@ int auxAtraso       = 0;
 int flagReenvio     = 0;
 int flagConfV       = 0;
 int flagEnvioRapido = 0;
-int OldSizeBackup   = 0;
+int OldSizeBackup    = 0;
 int flagFalhaBuff   = 0;   // falha do envio do buff
 int linkDead        = 0;
 
-uint8_t mydata[12];
+uint8_t mydata[13];
 uint8_t lastDataSend[1];
 
 
@@ -170,7 +170,7 @@ void do_sendRenv(osjob_t *j)
     Serial.print(F("Enviando o Buffer "));
     Serial.print(*ptrAuxDate, HEX);
     Serial.println(F(" dado"));
-    uint8_t myaux[11];
+    uint8_t myaux[13];
   
    uint32_t LatitudeBinaryAux, LongitudeBinaryAux;
    uint16_t altitudeGpsAux, AuxId; 
@@ -200,7 +200,8 @@ void do_sendRenv(osjob_t *j)
 
   hdopGpsAux = hdopGpsAux * 10;
   myaux[10] = hdopGpsAux & 0xFF;
-
+  myaux[11] = 0;
+  myaux[12] = backup->getStartPosConfBigEnd();
 
     if (buff->getQuantidade() == 1 && !flagConfV && !flagEnvioRapido) // !flagConfV !flagEnvioRapido
     {
@@ -252,6 +253,7 @@ void do_send(osjob_t *j)
       
       LMIC.rxDelay = 1;
       mydata[11] = 0;
+      mydata[12] = backup->getStartPosConfBigEnd();
       LMIC_setTxData2(1, mydata, sizeof(mydata), 0);
     }
 
@@ -267,6 +269,7 @@ void do_send(osjob_t *j)
       lastDataSend[0] = mydata[0];
 
       mydata[11] = 1;
+      mydata[12] = backup->getStartPosConfBigEnd();
       LMIC.rxDelay = 5;
       LMIC_setTxData2(1, mydata, sizeof(mydata), 1);
     }
@@ -275,6 +278,7 @@ void do_send(osjob_t *j)
     {
       flagFalhaBuff = 0; //y
       mydata[11] = 1;
+      mydata[12] = backup->getStartPosConfBigEnd();
       LMIC_setTxData2(1, mydata, sizeof(mydata), 1);
     }
 
@@ -282,6 +286,7 @@ void do_send(osjob_t *j)
     {
       LMIC.rxDelay = 5;
       mydata[11] = 1;
+      mydata[12] = backup->getStartPosConfBigEnd();
       LMIC_setTxData2(1, mydata, sizeof(mydata), 1);
     }
 
