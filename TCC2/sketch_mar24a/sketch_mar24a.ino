@@ -30,7 +30,7 @@ int auxAtraso       = 0;
 int flagReenvio     = 0;
 int flagConfV       = 0;
 int flagEnvioRapido = 0;
-int OldSizeBackup    = 0;
+int OldSizeBackup    = 0; 
 int flagFalhaBuff   = 0;   // falha do envio do buff
 int linkDead        = 0;
 
@@ -206,7 +206,7 @@ void do_sendRenv(osjob_t *j)
     if (buff->getQuantidade() == 1 && !flagConfV && !flagEnvioRapido) // !flagConfV !flagEnvioRapido
     {
 
-      flagFalhaBuff = 1;
+      flagFalhaBuff = (EvitaEnvioVazio - 1 ) > 1 ?  EvitaEnvioVazio - 1  : 1 ;
       flagReenvio = 0;
 
       LMIC.rxDelay = 5;
@@ -311,7 +311,8 @@ void tcc2 () {
 
   Serial.println(F("EV_TXCOMPLETE (includes waiting for RX windows)"));
 
-  auxAtraso =  AtiveInverse == 1 && flagEnvioRapido == 1 ?  backup->getQuantidade() - ( backup->getQuantidadeConfima() + 2*backup->getQuantidadeConfima()/3 ) :  backup->getQuantidade() - backup->getQuantidadeConfima();
+  //auxAtraso =  AtiveInverse == 1 && flagEnvioRapido == 1 ?  backup->getQuantidade() - ( backup->getQuantidadeConfima() + 2*backup->getQuantidadeConfima()/3 ) :  backup->getQuantidade() - backup->getQuantidadeConfima();
+  auxAtraso = backup->getQuantidade() - backup->getQuantidadeConfima();
   OldSizeBackup = backup->getQuantidade();
   Serial.println(F("********Flags********"));
   Serial.print(F("FlagReenvio "));
@@ -365,9 +366,9 @@ void tcc2 () {
     }
     else if (!flagReenvio && flagFalhaBuff && !flagConfV)
     {
-      flagFalhaBuff = 0;
+      flagFalhaBuff--;
 
-      if (auxAtraso >= 5) //
+      if (auxAtraso >= 5 && flagFalhaBuff == 0) //
       {
         carregaBUFF(backup, buff);
         flagEnvioRapido = 1;
@@ -480,7 +481,7 @@ void tcc2 () {
       Serial.println(F("**SETCONF** "));
       os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_sendRenv);
     }
-    else if (auxAtraso > 0  && flagEnvioRapido && buff->getQuantidade() > 0)
+    else if (auxAtraso > 0  && flagEnvioRapido && buff->getQuantidade() > 0 )
     {
       LMIC.rxDelay = 0;
       Serial.print(F("Envio rapido inutil"));
@@ -663,6 +664,7 @@ void onEvent(ev_t ev)
       Serial.println(F("EV_JOIN_FAILED"));
       break;
     case EV_REJOIN_FAILED:
+      LMIC.rxDelay = 5;
       Serial.println(F("EV_REJOIN_FAILED"));
       break;
       break;
@@ -685,6 +687,7 @@ void onEvent(ev_t ev)
       Serial.println(F("EV_LINK_DEAD"));
       LMIC.rxDelay = 5;
       linkDead = 1;
+      do_send(&sendjob);
       break;
     case EV_LINK_ALIVE:
       Serial.println(F("EV_LINK_ALIVE"));
@@ -695,6 +698,7 @@ void onEvent(ev_t ev)
       break;
     default:
       Serial.print(F("Unknown event: "));
+        LMIC.rxDelay = 5;
       Serial.println((unsigned)ev);
       break;
   }
