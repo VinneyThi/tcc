@@ -17,7 +17,7 @@ uint16_t altitudeGps, id = 0;
 uint8_t hdopGps;
 
 
-  double auxCoord[4]; 
+  double auxCoord[4];
 
 
 # define AtiveInverse  1
@@ -30,9 +30,10 @@ int auxAtraso       = 0;
 int flagReenvio     = 0;
 int flagConfV       = 0;
 int flagEnvioRapido = 0;
-int OldSizeBackup    = 0; 
+int OldSizeBackup   = 0;
 int flagFalhaBuff   = 0;   // falha do envio do buff
 int linkDead        = 0;
+int forceSendBigEnd = 0;
 
 uint8_t mydata[13];
 uint8_t lastDataSend[1];
@@ -70,8 +71,11 @@ void setPTRconfirmado(fila *ptrBackup)
 
 void carregaBUFF(fila *ptrbackup, fila *ptrbuff)
 {
-  if (AtiveInverse && flagEnvioRapido)
+  if (AtiveInverse && (flagEnvioRapido || forceSendBigEnd))
+  {
+    forceSendBigEnd = 0;
     LoadBuffBigEnd(ptrbackup, ptrbuff);
+  }
   else
     LoadBuffLowEnd(ptrbackup, ptrbuff);
 }
@@ -86,14 +90,14 @@ void LoadBuffLowEnd(fila *ptrbackup, fila *ptrbuff)
     double *ptrAuxInsert = new double[4];
 
     ptrAuxDado = ptrbackup->getDadoPosConf( (i + 1) );
-    
+
     for (int i =0 ; i < 4 ; i++)
    {Serial.print("teses lowendBuff ");
     Serial.println( i);
     ptrAuxInsert[i] = ptrAuxDado[i];
    }
 
-    
+
     Serial.print("id: ");
     Serial.println(ptrAuxDado[3]);
     ptrbuff->insereFinal(ptrAuxInsert);
@@ -111,12 +115,12 @@ void LoadBuffBigEnd(fila *ptrbackup, fila *ptrbuff)
   {
     double *ptrAuxDado;
     double *ptrAuxInsert = new double[4];
-    
+
     ptrAuxDado = ptrbackup->getDadoPosConfBigEnd( (i) );
 
     for (int j =0 ; j < 3 ; j++)
       ptrAuxInsert[j] = ptrAuxDado[j];
-      
+
     Serial.print("id: ");
     Serial.println(ptrAuxDado[3]);;
     ptrbuff->insereFinal(ptrAuxDado);
@@ -128,10 +132,10 @@ void LoadBuffBigEnd(fila *ptrbackup, fila *ptrbuff)
     double *ptrAuxInsert = new double[4];
 
     ptrAuxDado = ptrbackup->getDadoPosConf( (i + 1) );
-    
+
     for (int j =0 ; j < 4 ; j++)
      ptrAuxInsert[j] = ptrAuxDado[j];
-    
+
     Serial.print("id: ");
     Serial.println(ptrAuxDado[3]);
     ptrbuff->insereFinal(ptrAuxInsert);
@@ -166,23 +170,23 @@ void do_sendRenv(osjob_t *j)
 
 
 
-    
+
     Serial.print(F("Enviando o Buffer "));
     Serial.print(*ptrAuxDate, HEX);
     Serial.println(F(" dado"));
     uint8_t myaux[13];
-  
+
    uint32_t LatitudeBinaryAux, LongitudeBinaryAux;
-   uint16_t altitudeGpsAux, AuxId; 
+   uint16_t altitudeGpsAux, AuxId;
    uint8_t hdopGpsAux;
 
-  
+
   LatitudeBinaryAux = (( ptrAuxDate[0] + 90) / 180) * 16777215;
   LongitudeBinaryAux = (( ptrAuxDate[1] + 180) / 360) * 16777215;
   altitudeGpsAux=  ptrAuxDate[2];
   AuxId = (uint16_t)ptrAuxDate[3];
   hdopGpsAux = 2.5;
-    
+
   myaux[0] = ( LatitudeBinaryAux >> 16 ) & 0xFF;
   myaux[1] = ( LatitudeBinaryAux >> 8 ) & 0xFF;
   myaux[2] = LatitudeBinaryAux & 0xFF;
@@ -250,7 +254,7 @@ void do_send(osjob_t *j)
       Serial.println(lastDataSend[0], HEX);
 
       contEnvio = (lastDataSend[0] != mydata[0])  && (contEnvio == 0 ) && (buff->getQuantidade() == 0) ? ++contEnvio : contEnvio ;
-      
+
       LMIC.rxDelay = 1;
       mydata[11] = 0;
       mydata[12] = backup->getStartPosConfBigEnd();
@@ -404,6 +408,7 @@ void tcc2 () {
         flagConfV = 0;
         LMIC.rxDelay = 1;
         flagFalhaBuff = 0; // coloquei*
+        forceSendBigEnd = 1; //force use sender bigend
       }
 
 
@@ -468,7 +473,7 @@ void tcc2 () {
     {
       if(flagConfV == 1)
         flagConfV = EvitaEnvioVazio;
-        
+
       os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_send);
     }
 
@@ -522,14 +527,14 @@ void CatCoordGPS()
     lon = gps.location.lng();
   }
 //  if (gps.altitude.isUpdated())
-  
+
     LatitudeBinary = ((gps.location.lat() + 90) / 180) * 16777215;
   LongitudeBinary = ((gps.location.lng () + 180) / 360) * 16777215;
 
   id++;
   uint16_t AuxInt = id;
 
-  
+
   double TESTE3[3];
   auxCoord[0]= gps.location.lat();
    auxCoord[1] = gps.location.lng();
@@ -541,7 +546,7 @@ Serial.println("tEST AUX COORD");
   Serial.println(TESTE3[1] ,5);
   Serial.println(TESTE3[2] ,5);
   Serial.println("tEST AUX COORD");
-  
+
   mydata[0] = ( LatitudeBinary >> 16 ) & 0xFF;
   mydata[1] = ( LatitudeBinary >> 8 ) & 0xFF;
   mydata[2] = LatitudeBinary & 0xFF;
@@ -725,12 +730,12 @@ void setup()
   axp.setPowerOutPut(AXP192_DCDC1, AXP202_ON);
   GPS.begin(9600, SERIAL_8N1, 34, 12);  // configurando comunicação com o NEO6.
   Serial.println(F("Starting"));
-  
+
     double *ptrAuxInsert = new double[4];
-    
+
     for (int i =0 ; i < 4 ; i++)
       ptrAuxInsert[i] = 0.0;
- 
+
 
   backup->insereFinal(ptrAuxInsert);
   buff->insereFinal(ptrAuxInsert);
@@ -774,21 +779,21 @@ void loop2(void *z)
         gps.encode(GPS.read());
 
       CatCoordGPS();
-      
+
       double *ptrAuxInsert = new double[4];
-      
+
       for (int i =0 ; i < 4 ; i++)
         ptrAuxInsert[i] = auxCoord[i];
-        
+
       backup->insereFinal(ptrAuxInsert);
       ptrAuxDate = backup->getDado();
-    
+
     Serial.print(F(" Novo dado TESTE AUX LAT  " ));
     Serial.println(ptrAuxDate[0] ,5);
 
         Serial.println(auxCoord[0] ,5);
 
-            
+
     Serial.print(F(" Novo dado TESTE AUX LAT  " ));
 
       Serial.print(backup->getQuantidade());
@@ -804,7 +809,7 @@ void loop2(void *z)
         double *ptrAuxInsert = new double[4];
         for (int i =0 ; i < 4 ; i++)
           ptrAuxInsert[i] = auxCoord[i];
-          
+
         buff->insereFinal(ptrAuxInsert);
         Serial.println(F(" Tamanho buff "));
         Serial.print(buff->getQuantidade());
