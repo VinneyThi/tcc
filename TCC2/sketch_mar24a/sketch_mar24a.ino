@@ -168,11 +168,8 @@ void do_sendRenv(osjob_t *j)
     double *ptrAuxDate;
     ptrAuxDate = buff->getDado();
 
-
-
-
     Serial.print(F("Enviando o Buffer "));
-    Serial.print(*ptrAuxDate, HEX);
+    Serial.print(ptrAuxDate[3]);
     Serial.println(F(" dado"));
     uint8_t myaux[13];
 
@@ -248,7 +245,7 @@ void do_send(osjob_t *j)
     {
       Serial.println(F("!Envio padrão do Buffer!!"));
       Serial.print(F("Valor a ser enviado  "));
-      Serial.println(mydata[0], HEX);
+      Serial.println(mydata[3]);
 
       Serial.print(F("Valor do ultimo dado enviado "));
       Serial.println(lastDataSend[0], HEX);
@@ -268,7 +265,7 @@ void do_send(osjob_t *j)
       flagThread = 1;
 
       Serial.println(F("!! Enviado solicitando confirmação  !!"));
-      Serial.println(mydata[0], HEX);
+      Serial.println(mydata[3]);
       Serial.println(F("!!  Enviado solicitando confirmação !!"));
       lastDataSend[0] = mydata[0];
 
@@ -295,7 +292,7 @@ void do_send(osjob_t *j)
     }
 
     Serial.print(F("VALOR DO pacote enviado "));
-    Serial.println(mydata[0], HEX);
+    Serial.println(mydata[3]);
     Serial.print(F("Valor Contador "));
     Serial.println(contEnvio);
     Serial.println(F("Packet queued"));
