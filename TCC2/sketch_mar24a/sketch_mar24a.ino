@@ -22,6 +22,8 @@ uint8_t hdopGps;
 
 # define AtiveInverse  1
 # define EvitaEnvioVazio 4
+# define sizeBuffer 5
+
 
 int flagStartProd   = 0;
 int contEnvio       = 0;
@@ -474,7 +476,7 @@ void tcc2 () {
       os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_send);
     }
 
-    else if (auxAtraso >= 5 && flagEnvioRapido && buff->getQuantidade() == 0) //p
+    else if (auxAtraso >= sizeBuffer && flagEnvioRapido && buff->getQuantidade() == 0) //p
     {
       carregaBUFF(backup, buff);
       LMIC.rxDelay = 0;

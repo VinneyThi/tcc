@@ -212,6 +212,7 @@ void fila::setPTRconfirmado(int qtnConfirmado)
     {
       this->ptrConfirmado = this->ptrConfirmadoBigEnd;
       this->posConfirmada = this->ptrConfirmadoBigEnd->getPos();
+      this->ptrConfirmadoBigEnd = this->ptrFinal;
       this->posConfirmadaBigEnd = 0;
       return;
     }
