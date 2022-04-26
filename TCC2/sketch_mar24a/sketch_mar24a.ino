@@ -313,6 +313,7 @@ void tcc2 () {
   Serial.println(LMIC.rxDelay);
 
   Serial.println(F("EV_TXCOMPLETE (includes waiting for RX windows)"));
+  bool bAuxSumFlags = flagReenvio && flagFalhaBuff && flagConfV && flagThread && flagEnvioRapido;
 
   //auxAtraso =  AtiveInverse == 1 && flagEnvioRapido == 1 ?  backup->getQuantidade() - ( backup->getQuantidadeConfima() + 2*backup->getQuantidadeConfima()/3 ) :  backup->getQuantidade() - backup->getQuantidadeConfima();
   auxAtraso = backup->getQuantidade() - backup->getQuantidadeConfima();
@@ -476,7 +477,7 @@ void tcc2 () {
       os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_send);
     }
 
-    else if (auxAtraso >= sizeBuffer && flagEnvioRapido && buff->getQuantidade() == 0) //p
+    else if (((auxAtraso >= (sizeBuffer)) && flagEnvioRapido && buff->getQuantidade() == 0) || (auxAtraso > 15 && !bAuxSumFlags)) // p
     {
       carregaBUFF(backup, buff);
       LMIC.rxDelay = 0;
