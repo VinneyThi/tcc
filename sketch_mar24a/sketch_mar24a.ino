@@ -212,7 +212,7 @@ void do_sendRenv(osjob_t *j)
     {
       if (flagEnvioRapido)
         keepALiveCount++;
-      if (keepALiveCount >= keepALiveTrigger)
+      if (keepALiveCount > 0 &&  keepALiveTrigger > 0 && keepALiveCount >= keepALiveTrigger)
       {
         myaux[11] = 1;
         LMIC.rxDelay = 5;
