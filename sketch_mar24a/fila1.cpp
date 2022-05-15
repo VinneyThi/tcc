@@ -302,3 +302,8 @@ int fila::getStartPosConfBigEnd()
 {
   return this->posStartBigEndConf;
 }
+
+void fila::resetBigEnd(){
+  this->posConfirmadaBigEnd = 0;
+  this->ptrConfirmadoBigEnd = this->ptrFinal;
+}

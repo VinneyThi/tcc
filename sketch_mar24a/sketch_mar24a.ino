@@ -356,7 +356,7 @@ void tcc2()
       if (((auxAtraso >= (sizeBuffer)) && flagEnvioRapido && buff->getQuantidade() == 0) || (auxAtraso > 15 && !bAuxSumFlags)) // p
       {
         carregaBUFF(backup, buff);
-        LMIC.rxDelay = 0;
+        LMIC.rxDelay = 1;
         setPTRconfirmado(backup);
         // printSet(backup);
         Serial.println(F("**SETCONF flagKeepALiveSend** "));
@@ -364,7 +364,7 @@ void tcc2()
       }
       else if (auxAtraso > 0 && flagEnvioRapido && buff->getQuantidade() > 0)
       {
-        LMIC.rxDelay = 0;
+        LMIC.rxDelay = 1;
         Serial.print(F("Envio rapido inutil flagKeepALiveSend"));
         os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_sendRenv);
       }
@@ -489,6 +489,7 @@ void tcc2()
       flagKeepALiveSend = 0;
       keepALiveCount = 0;
       keepALiveTrigger = 0;
+      backup->resetBigEnd();
 
       forceSendBigEnd = 0; // force use sender bigend
 		  flagEnvioRapido = 0;
@@ -518,7 +519,7 @@ void tcc2()
     else if (((auxAtraso >= (sizeBuffer)) && flagEnvioRapido && buff->getQuantidade() == 0) || (auxAtraso > 15 && !bAuxSumFlags)) // p
     {
       carregaBUFF(backup, buff);
-      LMIC.rxDelay = 0;
+      LMIC.rxDelay = 1;
       setPTRconfirmado(backup);
       // printSet(backup);
       Serial.println(F("**SETCONF** "));
@@ -526,7 +527,7 @@ void tcc2()
     }
     else if (auxAtraso > 0 && flagEnvioRapido && buff->getQuantidade() > 0)
     {
-      LMIC.rxDelay = 0;
+      LMIC.rxDelay = 1;
       Serial.print(F("Envio rapido inutil"));
       os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_sendRenv);
     }
