@@ -31,6 +31,9 @@ int OldSizeBackup = 0;
 int flagFalhaBuff = 0; // falha do envio do buff
 int linkDead = 0;
 int forceSendBigEnd = 0;
+int keepALiveTrigger = 0;
+int keepALiveCount = 0;
+int flagKeepALiveSend = 0;
 
 uint8_t mydata[13];
 uint8_t lastDataSend[1];
@@ -199,7 +202,6 @@ void do_sendRenv(osjob_t *j)
 
     if (buff->getQuantidade() == 1 && !flagConfV && !flagEnvioRapido) // !flagConfV !flagEnvioRapido
     {
-
       flagFalhaBuff = (EvitaEnvioVazio - 1) > 1 ? EvitaEnvioVazio - 1 : 1;
       flagReenvio = 0;
 
@@ -208,8 +210,20 @@ void do_sendRenv(osjob_t *j)
     }
     else
     {
-      LMIC.rxDelay = 1;
-      LMIC_setTxData2(1, myaux, sizeof(myaux), 0);
+      if (flagEnvioRapido)
+        keepALiveCount++;
+      if (keepALiveCount >= keepALiveTrigger)
+      {
+        myaux[11] = 1;
+        LMIC.rxDelay = 5;
+        flagKeepALiveSend = 1;
+        LMIC_setTxData2(1, myaux, sizeof(myaux), 1);
+      }
+      else
+      {
+        LMIC.rxDelay = 1;
+        LMIC_setTxData2(1, myaux, sizeof(myaux), 0);
+      }
     }
 
     buff->removeFila();
@@ -320,6 +334,8 @@ void tcc2()
   Serial.println(flagThread);
   Serial.print(F("flagEnvioRapido "));
   Serial.println(flagEnvioRapido);
+  Serial.print(F("flagKeepALiveSend "));
+  Serial.println(flagKeepALiveSend);
   Serial.print(F("TAMANHO - POSCONF "));
   Serial.println(auxAtraso);
   Serial.print(F("Posição de inicio da HeadBig "));
@@ -332,7 +348,28 @@ void tcc2()
 
     Serial.print(F("Tamanho Buffer "));
     Serial.println(buff->getQuantidade());
-    if (flagReenvio && !flagConfV)
+    if (flagKeepALiveSend)
+    {
+      flagKeepALiveSend = 0;
+      keepALiveCount = 0;
+      keepALiveTrigger = 0;
+      if (((auxAtraso >= (sizeBuffer)) && flagEnvioRapido && buff->getQuantidade() == 0) || (auxAtraso > 15 && !bAuxSumFlags)) // p
+      {
+        carregaBUFF(backup, buff);
+        LMIC.rxDelay = 0;
+        setPTRconfirmado(backup);
+        // printSet(backup);
+        Serial.println(F("**SETCONF flagKeepALiveSend** "));
+        os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_sendRenv);
+      }
+      else if (auxAtraso > 0 && flagEnvioRapido && buff->getQuantidade() > 0)
+      {
+        LMIC.rxDelay = 0;
+        Serial.print(F("Envio rapido inutil flagKeepALiveSend"));
+        os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_sendRenv);
+      }
+    }
+    else if (flagReenvio && !flagConfV)
     {
       if (buff->getQuantidade() > 0) // add 06/07
         Serial.println(F("Antes do remove  ack"));
@@ -408,6 +445,7 @@ void tcc2()
         Serial.println(F("*************"));
         Serial.println(F("Atrasso > 5"));
         Serial.println(F("*************"));
+        keepALiveTrigger = auxAtraso / 2;
         carregaBUFF(backup, buff);
 
         flagEnvioRapido = 1;
@@ -446,8 +484,18 @@ void tcc2()
     Serial.println(F("Dont Received ack"));
     Serial.print(F("Tamanho buff "));
     Serial.println(buff->getQuantidade());
-    if (flagReenvio) //! flagFalhaBuff
+    if (flagKeepALiveSend){
+      Serial.print(F("flagKeepALiveSend "));
+      flagKeepALiveSend = 0;
+      keepALiveCount = 0;
+      keepALiveTrigger = 0;
 
+      forceSendBigEnd = 0; // force use sender bigend
+		  flagEnvioRapido = 0;
+      flagConfV = EvitaEnvioVazio;
+      os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_send);
+    }
+    else if (flagReenvio) //! flagFalhaBuff
     {
       os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_sendRenv); /// desvio ?
       // break;
