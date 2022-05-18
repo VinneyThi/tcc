@@ -446,9 +446,9 @@ void tcc2()
         Serial.println(F("Atrasso > 5"));
         Serial.println(F("*************"));
         keepALiveTrigger = auxAtraso / 2;
+        flagEnvioRapido = 1;
         carregaBUFF(backup, buff);
 
-        flagEnvioRapido = 1;
         setPTRconfirmado(backup);
         Serial.println(F("**setPTRconfirmado** "));
         os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_sendRenv);
@@ -456,17 +456,16 @@ void tcc2()
     }
     else if (auxAtraso >= 5)
     {
+      setPTRconfirmado(backup);
+      Serial.println(F("**setPTRconfirmado** "));
       Serial.println(F("Atrasso > 5"));
-      carregaBUFF(backup, buff);
+      keepALiveTrigger = auxAtraso / 2;
       flagEnvioRapido = 1;
+      carregaBUFF(backup, buff);
       LMIC.rxDelay = 1;
       Serial.println(F("*"));
       Serial.print(F(" Tamanho buff apos recarregar "));
       Serial.println(buff->getQuantidade());
-
-      setPTRconfirmado(backup);
-      Serial.println(F("**setPTRconfirmado** "));
-
       os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_sendRenv);
     }
     else
