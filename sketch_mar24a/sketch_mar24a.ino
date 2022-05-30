@@ -5,9 +5,7 @@
 #include <TinyGPS++.h>
 #include <axp20x.h>
 
-
 double latu, lon, alt;
-
 
 TinyGPSPlus gps;
 HardwareSerial GPS(1);
@@ -16,33 +14,31 @@ uint32_t LatitudeBinary, LongitudeBinary;
 uint16_t altitudeGps, id = 0;
 uint8_t hdopGps;
 
+double auxCoord[4];
 
-  double auxCoord[4];
+#define AtiveInverse 1
+#define EvitaEnvioVazio 3
+#define sizeBuffer 5
 
-
-# define AtiveInverse  1
-# define EvitaEnvioVazio 4
-# define sizeBuffer 5
-
-
-int flagStartProd   = 0;
-int contEnvio       = 0;
-int flagThread      = 0;
-int auxAtraso       = 0;
-int flagReenvio     = 0;
-int flagConfV       = 0;
+int flagStartProd = 0;
+int contEnvio = 0;
+int flagThread = 0;
+int auxAtraso = 0;
+int flagReenvio = 0;
+int flagConfV = 0;
 int flagEnvioRapido = 0;
-int OldSizeBackup   = 0;
-int flagFalhaBuff   = 0;   // falha do envio do buff
-int linkDead        = 0;
+int OldSizeBackup = 0;
+int flagFalhaBuff = 0; // falha do envio do buff
+int linkDead = 0;
 int forceSendBigEnd = 0;
+int keepALiveTrigger = 0;
+int keepALiveCount = 0;
+int flagKeepALiveSend = 0;
 
 uint8_t mydata[13];
 uint8_t lastDataSend[1];
 
-
-
-fila *buff   = new PROGMEM fila;
+fila *buff = new PROGMEM fila;
 fila *backup = new PROGMEM fila;
 
 static osjob_t sendjob; // cria uma variavel de trabalho que é usado na função de agendamento da biblioteca.
@@ -91,14 +87,14 @@ void LoadBuffLowEnd(fila *ptrbackup, fila *ptrbuff)
     double *ptrAuxDado;
     double *ptrAuxInsert = new double[4];
 
-    ptrAuxDado = ptrbackup->getDadoPosConf( (i + 1) );
+    ptrAuxDado = ptrbackup->getDadoPosConf((i + 1));
 
-    for (int i =0 ; i < 4 ; i++)
-   {Serial.print("teses lowendBuff ");
-    Serial.println( i);
-    ptrAuxInsert[i] = ptrAuxDado[i];
-   }
-
+    for (int i = 0; i < 4; i++)
+    {
+      Serial.print("teses lowendBuff ");
+      Serial.println(i);
+      ptrAuxInsert[i] = ptrAuxDado[i];
+    }
 
     Serial.print("id: ");
     Serial.println(ptrAuxDado[3]);
@@ -107,24 +103,23 @@ void LoadBuffLowEnd(fila *ptrbackup, fila *ptrbuff)
   Serial.println(F("**LoadBuffLowEnd2** "));
 }
 
-
 void LoadBuffBigEnd(fila *ptrbackup, fila *ptrbuff)
 {
   Serial.println(F("**LoadBuffBigEnd1** "));
-
 
   for (int i = 0; i < 2; i++)
   {
     double *ptrAuxDado;
     double *ptrAuxInsert = new double[4];
 
-    ptrAuxDado = ptrbackup->getDadoPosConfBigEnd( (i) );
+    ptrAuxDado = ptrbackup->getDadoPosConfBigEnd((i));
 
-    for (int j =0 ; j < 3 ; j++)
+    for (int j = 0; j < 3; j++)
       ptrAuxInsert[j] = ptrAuxDado[j];
 
     Serial.print("id: ");
-    Serial.println(ptrAuxDado[3]);;
+    Serial.println(ptrAuxDado[3]);
+    ;
     ptrbuff->insereFinal(ptrAuxDado);
   }
 
@@ -133,10 +128,10 @@ void LoadBuffBigEnd(fila *ptrbackup, fila *ptrbuff)
     double *ptrAuxDado;
     double *ptrAuxInsert = new double[4];
 
-    ptrAuxDado = ptrbackup->getDadoPosConf( (i + 1) );
+    ptrAuxDado = ptrbackup->getDadoPosConf((i + 1));
 
-    for (int j =0 ; j < 4 ; j++)
-     ptrAuxInsert[j] = ptrAuxDado[j];
+    for (int j = 0; j < 4; j++)
+      ptrAuxInsert[j] = ptrAuxDado[j];
 
     Serial.print("id: ");
     Serial.println(ptrAuxDado[3]);
@@ -175,41 +170,39 @@ void do_sendRenv(osjob_t *j)
     Serial.println(F(" dado"));
     uint8_t myaux[13];
 
-   uint32_t LatitudeBinaryAux, LongitudeBinaryAux;
-   uint16_t altitudeGpsAux, AuxId;
-   uint8_t hdopGpsAux;
+    uint32_t LatitudeBinaryAux, LongitudeBinaryAux;
+    uint16_t altitudeGpsAux, AuxId;
+    uint8_t hdopGpsAux;
 
+    LatitudeBinaryAux = ((ptrAuxDate[0] + 90) / 180) * 16777215;
+    LongitudeBinaryAux = ((ptrAuxDate[1] + 180) / 360) * 16777215;
+    altitudeGpsAux = ptrAuxDate[2];
+    AuxId = (uint16_t)ptrAuxDate[3];
+    hdopGpsAux = 2.5;
 
-  LatitudeBinaryAux = (( ptrAuxDate[0] + 90) / 180) * 16777215;
-  LongitudeBinaryAux = (( ptrAuxDate[1] + 180) / 360) * 16777215;
-  altitudeGpsAux=  ptrAuxDate[2];
-  AuxId = (uint16_t)ptrAuxDate[3];
-  hdopGpsAux = 2.5;
+    myaux[0] = (LatitudeBinaryAux >> 16) & 0xFF;
+    myaux[1] = (LatitudeBinaryAux >> 8) & 0xFF;
+    myaux[2] = LatitudeBinaryAux & 0xFF;
 
-  myaux[0] = ( LatitudeBinaryAux >> 16 ) & 0xFF;
-  myaux[1] = ( LatitudeBinaryAux >> 8 ) & 0xFF;
-  myaux[2] = LatitudeBinaryAux & 0xFF;
+    myaux[3] = (LongitudeBinaryAux >> 16) & 0xFF;
+    myaux[4] = (LongitudeBinaryAux >> 8) & 0xFF;
+    myaux[5] = LongitudeBinaryAux & 0xFF;
 
-  myaux[3] = ( LongitudeBinaryAux >> 16 ) & 0xFF;
-  myaux[4] = ( LongitudeBinaryAux >> 8 ) & 0xFF;
-  myaux[5] = LongitudeBinaryAux & 0xFF;
+    altitudeGps = altitudeGpsAux;
+    myaux[6] = (altitudeGpsAux >> 8) & 0xFF;
+    myaux[7] = altitudeGpsAux & 0xFF;
 
-  altitudeGps = altitudeGpsAux;
-  myaux[6] = ( altitudeGpsAux >> 8 ) & 0xFF;
-  myaux[7] = altitudeGpsAux & 0xFF;
+    myaux[8] = (AuxId >> 8) & 0xFF;
+    myaux[9] = AuxId & 0xFF;
 
-  myaux[8] = ( AuxId >> 8 ) & 0xFF;
-  myaux[9] = AuxId & 0xFF;
-
-  hdopGpsAux = hdopGpsAux * 10;
-  myaux[10] = hdopGpsAux & 0xFF;
-  myaux[11] = 0;
-  myaux[12] = backup->getStartPosConfBigEnd();
+    hdopGpsAux = hdopGpsAux * 10;
+    myaux[10] = hdopGpsAux & 0xFF;
+    myaux[11] = 0;
+    myaux[12] = backup->getStartPosConfBigEnd();
 
     if (buff->getQuantidade() == 1 && !flagConfV && !flagEnvioRapido) // !flagConfV !flagEnvioRapido
     {
-
-      flagFalhaBuff = (EvitaEnvioVazio - 1 ) > 1 ?  EvitaEnvioVazio - 1  : 1 ;
+      flagFalhaBuff = (EvitaEnvioVazio - 1) > 1 ? EvitaEnvioVazio - 1 : 1;
       flagReenvio = 0;
 
       LMIC.rxDelay = 5;
@@ -217,8 +210,20 @@ void do_sendRenv(osjob_t *j)
     }
     else
     {
-      LMIC.rxDelay = 1;
-      LMIC_setTxData2(1, myaux, sizeof(myaux), 0);
+      if (flagEnvioRapido)
+        keepALiveCount++;
+      if (keepALiveCount > 0 &&  keepALiveTrigger > 0 && keepALiveCount >= keepALiveTrigger)
+      {
+        myaux[11] = 1;
+        LMIC.rxDelay = 5;
+        flagKeepALiveSend = 1;
+        LMIC_setTxData2(1, myaux, sizeof(myaux), 1);
+      }
+      else
+      {
+        LMIC.rxDelay = 1;
+        LMIC_setTxData2(1, myaux, sizeof(myaux), 0);
+      }
     }
 
     buff->removeFila();
@@ -245,14 +250,15 @@ void do_send(osjob_t *j)
 
     if (contEnvio <= 4 && !flagFalhaBuff && !flagConfV)
     {
+      int idteste = ((mydata[8] << 8)) + mydata[9];
       Serial.println(F("!Envio padrão do Buffer!!"));
       Serial.print(F("Valor a ser enviado  "));
-      Serial.println(mydata[3]);
+      Serial.println(idteste);
 
       Serial.print(F("Valor do ultimo dado enviado "));
-      Serial.println(lastDataSend[0], HEX);
+      Serial.println(lastDataSend[0]);
 
-      contEnvio = (lastDataSend[0] != mydata[0])  && (contEnvio == 0 ) && (buff->getQuantidade() == 0) ? ++contEnvio : contEnvio ;
+      contEnvio = (lastDataSend[0] != idteste) && (contEnvio == 0) && (buff->getQuantidade() == 0) ? ++contEnvio : contEnvio;
 
       LMIC.rxDelay = 1;
       mydata[11] = 0;
@@ -265,11 +271,11 @@ void do_send(osjob_t *j)
       contEnvio = 0;
       flagReenvio = 1;
       flagThread = 1;
-
+      int idteste = ((mydata[8] << 8)) + mydata[9];
       Serial.println(F("!! Enviado solicitando confirmação  !!"));
       Serial.println(mydata[3]);
       Serial.println(F("!!  Enviado solicitando confirmação !!"));
-      lastDataSend[0] = mydata[0];
+      lastDataSend[0] = idteste;
 
       mydata[11] = 1;
       mydata[12] = backup->getStartPosConfBigEnd();
@@ -279,7 +285,7 @@ void do_send(osjob_t *j)
 
     else if (flagFalhaBuff)
     {
-      flagFalhaBuff = 0; //y
+      flagFalhaBuff = 0; // y
       mydata[11] = 1;
       mydata[12] = backup->getStartPosConfBigEnd();
       LMIC_setTxData2(1, mydata, sizeof(mydata), 1);
@@ -301,21 +307,20 @@ void do_send(osjob_t *j)
 
     Serial.print(F("Sending packet on frequency: "));
     Serial.println(LMIC.freq);
-
   }
 
   // Next TX is scheduled after TX_COMPLETE event.
 }
 
-
-void tcc2 () {
+void tcc2()
+{
   LMIC_setAdrMode(0);
   Serial.println(LMIC.rxDelay);
 
   Serial.println(F("EV_TXCOMPLETE (includes waiting for RX windows)"));
   bool bAuxSumFlags = flagReenvio || flagFalhaBuff || flagConfV || flagThread || flagEnvioRapido;
 
-  //auxAtraso =  AtiveInverse == 1 && flagEnvioRapido == 1 ?  backup->getQuantidade() - ( backup->getQuantidadeConfima() + 2*backup->getQuantidadeConfima()/3 ) :  backup->getQuantidade() - backup->getQuantidadeConfima();
+  // auxAtraso =  AtiveInverse == 1 && flagEnvioRapido == 1 ?  backup->getQuantidade() - ( backup->getQuantidadeConfima() + 2*backup->getQuantidadeConfima()/3 ) :  backup->getQuantidade() - backup->getQuantidadeConfima();
   auxAtraso = backup->getQuantidade() - backup->getQuantidadeConfima();
   OldSizeBackup = backup->getQuantidade();
   Serial.println(F("********Flags********"));
@@ -329,6 +334,8 @@ void tcc2 () {
   Serial.println(flagThread);
   Serial.print(F("flagEnvioRapido "));
   Serial.println(flagEnvioRapido);
+  Serial.print(F("flagKeepALiveSend "));
+  Serial.println(flagKeepALiveSend);
   Serial.print(F("TAMANHO - POSCONF "));
   Serial.println(auxAtraso);
   Serial.print(F("Posição de inicio da HeadBig "));
@@ -341,20 +348,42 @@ void tcc2 () {
 
     Serial.print(F("Tamanho Buffer "));
     Serial.println(buff->getQuantidade());
-    if (flagReenvio && !flagConfV)
+    if (flagKeepALiveSend)
+    {
+      flagKeepALiveSend = 0;
+      keepALiveCount = 0;
+      keepALiveTrigger = 0;
+      if (((auxAtraso >= (sizeBuffer)) && flagEnvioRapido && buff->getQuantidade() == 0) || (auxAtraso > 15 && !bAuxSumFlags)) // p
+      {
+        carregaBUFF(backup, buff);
+        LMIC.rxDelay = 1;
+        setPTRconfirmado(backup);
+        // printSet(backup);
+        Serial.println(F("**SETCONF flagKeepALiveSend** "));
+        os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_sendRenv);
+      }
+      else if (auxAtraso > 0 && flagEnvioRapido && buff->getQuantidade() > 0)
+      {
+        LMIC.rxDelay = 1;
+        Serial.print(F("Envio rapido inutil flagKeepALiveSend"));
+        os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_sendRenv);
+      }
+    }
+    else if (flagReenvio && !flagConfV)
     {
       if (buff->getQuantidade() > 0) // add 06/07
         Serial.println(F("Antes do remove  ack"));
 
-      for (int i = 0; i < auxTamBuff; i++) //p
-      { Serial.println(i);
-      Serial.println("remove");
+      for (int i = 0; i < auxTamBuff; i++) // p
+      {
+        Serial.println(i);
+        Serial.println("remove");
         buff->removeFila();
       }
 
       Serial.println(F("Deposi do remove  ack"));
 
-      flagReenvio   = 0;
+      flagReenvio = 0;
       flagFalhaBuff = 0;
 
       setPTRconfirmado(backup);
@@ -363,7 +392,7 @@ void tcc2 () {
 
       Serial.println("Volta para envio normal");
       int schedulerTime = 0;
-      schedulerTime = OldSizeBackup == backup->getQuantidade() ? (TX_INTERVAL / 4 ) + 2 : 1; //arruamr o cont a mais.
+      schedulerTime = OldSizeBackup == backup->getQuantidade() ? (TX_INTERVAL / 4) + 2 : 1; // arruamr o cont a mais.
       Serial.println(schedulerTime);
       Serial.println(" schedulerTime");
       os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_send);
@@ -381,7 +410,7 @@ void tcc2 () {
         Serial.println(buff->getQuantidade());
 
         setPTRconfirmado(backup);
-        //printSet(backup);
+        // printSet(backup);
         Serial.println(F("**SETCONF** "));
         os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_sendRenv);
       }
@@ -400,26 +429,26 @@ void tcc2 () {
         Serial.println(F("ANTE VENTO"));
         flagConfV--;
         os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_send);
-        return ;
+        return;
       }
       else
       {
         Serial.println(F("VOLTA MEMO VENTO"));
         flagConfV = 0;
         LMIC.rxDelay = 1;
-        flagFalhaBuff = 0; // coloquei*
-        forceSendBigEnd = 1; //force use sender bigend
+        flagFalhaBuff = 0;   // coloquei*
+        forceSendBigEnd = 1; // force use sender bigend
       }
-
 
       if (auxAtraso > 5)
       {
         Serial.println(F("*************"));
         Serial.println(F("Atrasso > 5"));
         Serial.println(F("*************"));
+        keepALiveTrigger = auxAtraso / 2;
+        flagEnvioRapido = 1;
         carregaBUFF(backup, buff);
 
-        flagEnvioRapido = 1;
         setPTRconfirmado(backup);
         Serial.println(F("**setPTRconfirmado** "));
         os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_sendRenv);
@@ -427,17 +456,16 @@ void tcc2 () {
     }
     else if (auxAtraso >= 5)
     {
+      setPTRconfirmado(backup);
+      Serial.println(F("**setPTRconfirmado** "));
       Serial.println(F("Atrasso > 5"));
-      carregaBUFF(backup, buff);
+      keepALiveTrigger = auxAtraso / 2;
       flagEnvioRapido = 1;
+      carregaBUFF(backup, buff);
       LMIC.rxDelay = 1;
       Serial.println(F("*"));
       Serial.print(F(" Tamanho buff apos recarregar "));
       Serial.println(buff->getQuantidade());
-
-      setPTRconfirmado(backup);
-      Serial.println(F("**setPTRconfirmado** "));
-
       os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_sendRenv);
     }
     else
@@ -448,7 +476,6 @@ void tcc2 () {
     }
   }
 
-
   //****************************************************************************
   else if (!(LMIC.txrxFlags & TXRX_ACK))
   {
@@ -456,11 +483,22 @@ void tcc2 () {
     Serial.println(F("Dont Received ack"));
     Serial.print(F("Tamanho buff "));
     Serial.println(buff->getQuantidade());
-    if (flagReenvio) //!flagFalhaBuff
+    if (flagKeepALiveSend){
+      Serial.print(F("flagKeepALiveSend "));
+      flagKeepALiveSend = 0;
+      keepALiveCount = 0;
+      keepALiveTrigger = 0;
+      backup->resetBigEnd();
 
+      forceSendBigEnd = 0; // force use sender bigend
+		  flagEnvioRapido = 0;
+      flagConfV = EvitaEnvioVazio;
+      os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_send);
+    }
+    else if (flagReenvio) //! flagFalhaBuff
     {
       os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_sendRenv); /// desvio ?
-      //break;
+      // break;
     }
     else if (flagFalhaBuff && buff->getQuantidade() < 5)
     {
@@ -471,8 +509,8 @@ void tcc2 () {
     }
     else if (flagConfV)
     {
-      if(flagConfV == 1)
-        flagConfV = EvitaEnvioVazio;
+      // if(flagConfV == 1)
+      flagConfV = EvitaEnvioVazio;
 
       os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_send);
     }
@@ -480,15 +518,15 @@ void tcc2 () {
     else if (((auxAtraso >= (sizeBuffer)) && flagEnvioRapido && buff->getQuantidade() == 0) || (auxAtraso > 15 && !bAuxSumFlags)) // p
     {
       carregaBUFF(backup, buff);
-      LMIC.rxDelay = 0;
+      LMIC.rxDelay = 1;
       setPTRconfirmado(backup);
-      //printSet(backup);
+      // printSet(backup);
       Serial.println(F("**SETCONF** "));
       os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_sendRenv);
     }
-    else if (auxAtraso > 0  && flagEnvioRapido && buff->getQuantidade() > 0 )
+    else if (auxAtraso > 0 && flagEnvioRapido && buff->getQuantidade() > 0)
     {
-      LMIC.rxDelay = 0;
+      LMIC.rxDelay = 1;
       Serial.print(F("Envio rapido inutil"));
       os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_sendRenv);
     }
@@ -497,7 +535,7 @@ void tcc2 () {
       int auxB = buff->getQuantidade();
 
       if (auxB > 0 && flagThread)
-        for (int i = 0; i < auxB; i++) //p
+        for (int i = 0; i < auxB; i++) // p
           buff->removeFila();
 
       Serial.print("Tamanho do buff ");
@@ -517,8 +555,6 @@ void tcc2 () {
   LMIC.rxDelay = 5;
 }
 
-
-
 void CatCoordGPS()
 {
   if (gps.location.isUpdated())
@@ -526,40 +562,39 @@ void CatCoordGPS()
     latu = gps.location.lat();
     lon = gps.location.lng();
   }
-//  if (gps.altitude.isUpdated())
+  //  if (gps.altitude.isUpdated())
 
-    LatitudeBinary = ((gps.location.lat() + 90) / 180) * 16777215;
-  LongitudeBinary = ((gps.location.lng () + 180) / 360) * 16777215;
+  LatitudeBinary = ((gps.location.lat() + 90) / 180) * 16777215;
+  LongitudeBinary = ((gps.location.lng() + 180) / 360) * 16777215;
 
   id++;
   uint16_t AuxInt = id;
 
-
   double TESTE3[3];
-  auxCoord[0]= gps.location.lat();
-   auxCoord[1] = gps.location.lng();
-   auxCoord[2] = gps.altitude.meters();
-   auxCoord[3] = id;
+  auxCoord[0] = gps.location.lat();
+  auxCoord[1] = gps.location.lng();
+  auxCoord[2] = gps.altitude.meters();
+  auxCoord[3] = id;
 
-Serial.println("tEST AUX COORD");
-  Serial.println(TESTE3[0] ,5);
-  Serial.println(TESTE3[1] ,5);
-  Serial.println(TESTE3[2] ,5);
+  Serial.println("tEST AUX COORD");
+  Serial.println(TESTE3[0], 5);
+  Serial.println(TESTE3[1], 5);
+  Serial.println(TESTE3[2], 5);
   Serial.println("tEST AUX COORD");
 
-  mydata[0] = ( LatitudeBinary >> 16 ) & 0xFF;
-  mydata[1] = ( LatitudeBinary >> 8 ) & 0xFF;
+  mydata[0] = (LatitudeBinary >> 16) & 0xFF;
+  mydata[1] = (LatitudeBinary >> 8) & 0xFF;
   mydata[2] = LatitudeBinary & 0xFF;
 
-  mydata[3] = ( LongitudeBinary >> 16 ) & 0xFF;
-  mydata[4] = ( LongitudeBinary >> 8 ) & 0xFF;
+  mydata[3] = (LongitudeBinary >> 16) & 0xFF;
+  mydata[4] = (LongitudeBinary >> 8) & 0xFF;
   mydata[5] = LongitudeBinary & 0xFF;
 
   altitudeGps = gps.altitude.meters();
-  mydata[6] = ( altitudeGps >> 8 ) & 0xFF;
+  mydata[6] = (altitudeGps >> 8) & 0xFF;
   mydata[7] = altitudeGps & 0xFF;
 
-  mydata[8] = ( AuxInt >> 8 ) & 0xFF;
+  mydata[8] = (AuxInt >> 8) & 0xFF;
   mydata[9] = AuxInt & 0xFF;
 
   hdopGps = gps.hdop.hdop() * 10;
@@ -574,14 +609,12 @@ Serial.println("tEST AUX COORD");
   Serial.print("Altitude  : ");
   Serial.println(gps.altitude.feet() / 3.2808);
 
-  int  idteste = ((mydata[8] << 8) ) + mydata[9];
+  int idteste = ((mydata[8] << 8)) + mydata[9];
   Serial.print("ID**&  : ");
   Serial.println(id);
   Serial.print(F("Valor id decode "));
   Serial.println(idteste);
-
 }
-
 
 static const u1_t PROGMEM APPEUI[8] = {0x43, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 void os_getArtEui(u1_t *buf)
@@ -603,10 +636,10 @@ void os_getDevKey(u1_t *buf)
 
 // Pin mapping for Esp32
 const lmic_pinmap lmic_pins = {
-  .nss = 18,
-  .rxtx = LMIC_UNUSED_PIN,
-  .rst = 14,
-  .dio = {26, 33, 32}, // 26,35,34 | 26,33,32
+    .nss = 18,
+    .rxtx = LMIC_UNUSED_PIN,
+    .rst = 14,
+    .dio = {26, 33, 32}, // 26,35,34 | 26,33,32
 };
 
 void onEvent(ev_t ev)
@@ -615,112 +648,116 @@ void onEvent(ev_t ev)
   Serial.print(": ");
   switch (ev)
   {
-    case EV_JOINING:
-      Serial.println(F("EV_JOINING"));
+  case EV_JOINING:
+    Serial.println(F("EV_JOINING"));
+    Serial.println(LMIC.rxDelay);
+    LMIC.rxDelay = 5;
+    break;
+  case EV_JOINED:
+    LMIC.rxDelay = 5;
+    Serial.println(F("EV_JOINED"));
+    {
+      if (AtiveInverse)
+        Serial.println(F("Ativado modo centopeia"));
+      else
+        Serial.println(F("Legacy"));
+
+      flagStartProd = 1;
       Serial.println(LMIC.rxDelay);
-      LMIC.rxDelay = 5;
-      break;
-    case EV_JOINED:
-      LMIC.rxDelay = 5;
-      Serial.println(F("EV_JOINED"));
+      u4_t netid = 0;
+      devaddr_t devaddr = 0;
+      u1_t nwkKey[16];
+      u1_t artKey[16];
+      LMIC_getSessionKeys(&netid, &devaddr, nwkKey, artKey);
+      Serial.print("netid: ");
+      Serial.println(netid, DEC);
+      Serial.print("devaddr: ");
+      Serial.println(devaddr, HEX);
+      Serial.print("artKey: ");
+      for (int i = 0; i < sizeof(artKey); ++i)
       {
-        if (AtiveInverse)
-          Serial.println(F("Ativado modo centopeia"));
-        else
-          Serial.println(F("Legacy"));
-
-        flagStartProd = 1;
-        Serial.println(LMIC.rxDelay);
-        u4_t netid = 0;
-        devaddr_t devaddr = 0;
-        u1_t nwkKey[16];
-        u1_t artKey[16];
-        LMIC_getSessionKeys(&netid, &devaddr, nwkKey, artKey);
-        Serial.print("netid: ");
-        Serial.println(netid, DEC);
-        Serial.print("devaddr: ");
-        Serial.println(devaddr, HEX);
-        Serial.print("artKey: ");
-        for (int i = 0; i < sizeof(artKey); ++i)
-        {
-          Serial.print(artKey[i], HEX);
-        }
-        Serial.println("");
-        Serial.print("nwkKey: ");
-        for (int i = 0; i < sizeof(nwkKey); ++i)
-        {
-          Serial.print(nwkKey[i], HEX);
-        }
-        Serial.println("");
+        Serial.print(artKey[i], HEX);
       }
-      Serial.println(F("Successful OTAA Join..."));
-      // Disable link check validation (automatically enabled
-      // during join, but because slow data rates change max TX
-      // size, we don't use it in this example.
-      LMIC_setLinkCheckMode(0);
-      if (linkDead) {
-        Serial.println(" Volta do link dead");
-        linkDead = 0;
-        os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_send);
+      Serial.println("");
+      Serial.print("nwkKey: ");
+      for (int i = 0; i < sizeof(nwkKey); ++i)
+      {
+        Serial.print(nwkKey[i], HEX);
       }
-      break;
+      Serial.println("");
+    }
+    Serial.println(F("Successful OTAA Join..."));
+    // Disable link check validation (automatically enabled
+    // during join, but because slow data rates change max TX
+    // size, we don't use it in this example.
+    LMIC_setLinkCheckMode(0);
+    if (linkDead)
+    {
+      Serial.println(" Volta do link dead");
+      linkDead = 0;
+      os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_send);
+    }
+    break;
 
-    case EV_JOIN_FAILED:
-      Serial.println(F("EV_JOIN_FAILED"));
-      break;
-    case EV_REJOIN_FAILED:
-      LMIC.rxDelay = 5;
-      Serial.println(F("EV_REJOIN_FAILED"));
-      break;
-      break;
-    case EV_TXCOMPLETE:
-      tcc2();
-      LMIC.rxDelay = 5;
+  case EV_JOIN_FAILED:
+    Serial.println(F("EV_JOIN_FAILED"));
+    break;
+  case EV_REJOIN_FAILED:
+    LMIC.rxDelay = 5;
+    Serial.println(F("EV_REJOIN_FAILED"));
+    break;
+    break;
+  case EV_TXCOMPLETE:
+    tcc2();
+    LMIC.rxDelay = 5;
 
-      break;
-    case EV_LOST_TSYNC:
-      Serial.println(F("EV_LOST_TSYNC"));
-      break;
-    case EV_RESET:
-      Serial.println(F("EV_RESET"));
-      break;
-    case EV_RXCOMPLETE:
-      // data received in ping slot
-      Serial.println(F("EV_RXCOMPLETE"));
-      break;
-    case EV_LINK_DEAD:
-      Serial.println(F("EV_LINK_DEAD"));
-      LMIC.rxDelay = 5;
-      linkDead = 1;
-      do_send(&sendjob);
-      break;
-    case EV_LINK_ALIVE:
-      Serial.println(F("EV_LINK_ALIVE"));
-      break;
+    break;
+  case EV_LOST_TSYNC:
+    Serial.println(F("EV_LOST_TSYNC"));
+    break;
+  case EV_RESET:
+    Serial.println(F("EV_RESET"));
+    break;
+  case EV_RXCOMPLETE:
+    // data received in ping slot
+    Serial.println(F("EV_RXCOMPLETE"));
+    break;
+  case EV_LINK_DEAD:
+    Serial.println(F("EV_LINK_DEAD"));
+    LMIC.rxDelay = 5;
+    linkDead = 1;
+    do_send(&sendjob);
+    break;
+  case EV_LINK_ALIVE:
+    Serial.println(F("EV_LINK_ALIVE"));
+    break;
 
-    case EV_TXSTART:
-      Serial.println(F("EV_TXSTART"));
-      break;
-    default:
-      Serial.print(F("Unknown event: "));
-        LMIC.rxDelay = 5;
-      Serial.println((unsigned)ev);
-      break;
+  case EV_TXSTART:
+    Serial.println(F("EV_TXSTART"));
+    break;
+  default:
+    Serial.print(F("Unknown event: "));
+    LMIC.rxDelay = 5;
+    Serial.println((unsigned)ev);
+    break;
   }
 }
 
 void setup()
 {
   Serial.begin(115200);
-  xTaskCreatePinnedToCore(loop2, "loop2", 8192, NULL, 1, NULL, 0); //Cria a tarefa "loop2()" com prioridade 1, atribuída ao core 0
+  xTaskCreatePinnedToCore(loop2, "loop2", 8192, NULL, 1, NULL, 0); // Cria a tarefa "loop2()" com prioridade 1, atribuída ao core 0
   Serial.print(sizeof(node));
   Serial.println(F("Starting"));
   mydata[0] = 0x00;
 
   Wire.begin(21, 22); // configurado a comunicação com o axp
-  if (!axp.begin(Wire, AXP192_SLAVE_ADDRESS)) {
+  if (!axp.begin(Wire, AXP192_SLAVE_ADDRESS))
+  {
     Serial.println("AXP192 Begin PASS");
-  } else {
+  }
+  else
+  {
     Serial.println("AXP192 Begin FAIL");
   }
   axp.setPowerOutPut(AXP192_LDO2, AXP202_ON);
@@ -728,14 +765,13 @@ void setup()
   axp.setPowerOutPut(AXP192_DCDC2, AXP202_ON);
   axp.setPowerOutPut(AXP192_EXTEN, AXP202_ON);
   axp.setPowerOutPut(AXP192_DCDC1, AXP202_ON);
-  GPS.begin(9600, SERIAL_8N1, 34, 12);  // configurando comunicação com o NEO6.
+  GPS.begin(9600, SERIAL_8N1, 34, 12); // configurando comunicação com o NEO6.
   Serial.println(F("Starting"));
 
-    double *ptrAuxInsert = new double[4];
+  double *ptrAuxInsert = new double[4];
 
-    for (int i =0 ; i < 4 ; i++)
-      ptrAuxInsert[i] = 0.0;
-
+  for (int i = 0; i < 4; i++)
+    ptrAuxInsert[i] = 0.0;
 
   backup->insereFinal(ptrAuxInsert);
   buff->insereFinal(ptrAuxInsert);
@@ -745,7 +781,7 @@ void setup()
   // Reset the MAC state. Session and pending data transfers will be discarded.
   LMIC_reset();
   LMIC_setDrTxpow(DR_SF9, 14);
-  LMIC_selectSubBand(1);                         //ativa um conjunto especifico de canais
+  LMIC_selectSubBand(1);                         // ativa um conjunto especifico de canais
   LMIC_setClockError(MAX_CLOCK_ERROR * 0 / 100); // compensação de atrasso no recebimento de janela de donwlink( necessario no otta) configurado para  um erro de 1%
 
   // Start job (sending automatically starts OTAA too)
@@ -762,16 +798,16 @@ void loop()
 void loop2(void *z)
 {
 
-  Serial.printf("\n**loop2() em core: %d /n", xPortGetCoreID()); //Mostra no monitor em qual core o loop2() foi chamado
+  Serial.printf("\n**loop2() em core: %d /n", xPortGetCoreID()); // Mostra no monitor em qual core o loop2() foi chamado
   while (1)
   {
     double *ptrAuxDate;
 
     Serial.println("!!!!!!!!!!!");
-    Serial.print("Memo " );
+    Serial.print("Memo ");
     Serial.println(heap_caps_get_free_size(MALLOC_CAP_8BIT));
     Serial.println("!!!!!!!!!!!");
-    if ( flagStartProd)
+    if (flagStartProd)
     {
       //  mydata[0]++;
 
@@ -782,19 +818,18 @@ void loop2(void *z)
 
       double *ptrAuxInsert = new double[4];
 
-      for (int i =0 ; i < 4 ; i++)
+      for (int i = 0; i < 4; i++)
         ptrAuxInsert[i] = auxCoord[i];
 
       backup->insereFinal(ptrAuxInsert);
       ptrAuxDate = backup->getDado();
 
-    Serial.print(F(" Novo dado TESTE AUX LAT  " ));
-    Serial.println(ptrAuxDate[0] ,5);
+      Serial.print(F(" Novo dado TESTE AUX LAT  "));
+      Serial.println(ptrAuxDate[0], 5);
 
-        Serial.println(auxCoord[0] ,5);
+      Serial.println(auxCoord[0], 5);
 
-
-    Serial.print(F(" Novo dado TESTE AUX LAT  " ));
+      Serial.print(F(" Novo dado TESTE AUX LAT  "));
 
       Serial.print(backup->getQuantidade());
       Serial.println(F(" Tamanho backup"));
@@ -807,7 +842,7 @@ void loop2(void *z)
       if (buff->getQuantidade() <= 4 && !flagThread)
       {
         double *ptrAuxInsert = new double[4];
-        for (int i =0 ; i < 4 ; i++)
+        for (int i = 0; i < 4; i++)
           ptrAuxInsert[i] = auxCoord[i];
 
         buff->insereFinal(ptrAuxInsert);
@@ -815,8 +850,18 @@ void loop2(void *z)
         Serial.print(buff->getQuantidade());
         contEnvio++;
       }
+      else if (buff->getQuantidade() > 10)
+      {
+        int auxB = buff->getQuantidade();
+
+        for (int i = 0; i < auxB; i++) // p
+          buff->removeFila();
+        flagConfV = EvitaEnvioVazio;
+        flagThread = 1;
+        contEnvio = 0;
+        Serial.println(F(" Caso extremo "));
+      }
     }
     delay(10000);
-
   }
 }

@@ -50,6 +50,7 @@ class fila
     double * getDadoConfBigEnd();
     double * getDadoPosConfBigEnd(int pos);
     int getStartPosConfBigEnd();
+    void resetBigEnd();
     node* criaNode();
 
       private:
