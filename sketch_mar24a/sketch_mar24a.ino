@@ -238,6 +238,17 @@ void do_sendRenv(osjob_t *j)
 
 void do_send(osjob_t *j)
 {
+  int idteste = ((mydata[8] << 8)) + mydata[9];
+  if(idteste != 0 && lastDataSend[0] == idteste){
+     Serial.print(lastDataSend[0]);
+     Serial.print(F("idteste"));
+     Serial.print(idteste);
+    Serial.println(F("LastDataSend dont send "));
+    onEvent(EV_TXCOMPLETE);
+    return;
+    }
+    lastDataSend[0] = idteste;
+
   // Check if there is not a current TX/RX job running
   if (LMIC.opmode & OP_TXRXPEND)
   {
@@ -250,7 +261,7 @@ void do_send(osjob_t *j)
 
     if (contEnvio <= 4 && !flagFalhaBuff && !flagConfV)
     {
-      int idteste = ((mydata[8] << 8)) + mydata[9];
+
       Serial.println(F("!Envio padrão do Buffer!!"));
       Serial.print(F("Valor a ser enviado  "));
       Serial.println(idteste);
@@ -275,7 +286,6 @@ void do_send(osjob_t *j)
       Serial.println(F("!! Enviado solicitando confirmação  !!"));
       Serial.println(mydata[3]);
       Serial.println(F("!!  Enviado solicitando confirmação !!"));
-      lastDataSend[0] = idteste;
 
       mydata[11] = 1;
       mydata[12] = backup->getStartPosConfBigEnd();
